@@ -1,0 +1,39 @@
+{
+  "name": "Future Mirror — Decision review notification",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "future-mirror/review_notification", "responseMode": "onReceived", "options": {} },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [ { "value1": "={{$json.body.idempotency_key}}", "operation": "isNotEmpty" } ] }
+      },
+      "name": "Has idempotency key",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "future-mirror@example.com",
+        "toEmail": "approvers@example.com",
+        "subject": "=Decision awaiting your approval: {{$json.body.decision}}",
+        "text": "=Approval request {{$json.body.approval_request_id}} requires roles: {{$json.body.roles}}.\nReview it in Future Mirror AI. This notification performs no business action."
+      },
+      "name": "Notify approvers (email)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [700, 280]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Has idempotency key", "type": "main", "index": 0 }]] },
+    "Has idempotency key": { "main": [[{ "node": "Notify approvers (email)", "type": "main", "index": 0 }], []] }
+  },
+  "settings": {},
+  "active": false
+}
