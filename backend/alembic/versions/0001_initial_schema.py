@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-10-15 08:33:17.611226
+Create Date: 2026-10-15 08:37:42.905622
 """
 from alembic import op
 import sqlalchemy as sa
@@ -145,7 +145,7 @@ def upgrade() -> None:
     sa.Column('name_ar', sa.String(length=200), nullable=False),
     sa.Column('description_en', sa.Text(), nullable=False),
     sa.Column('description_ar', sa.Text(), nullable=False),
-    sa.Column('effect', sa.String(length=20), nullable=False),
+    sa.Column('effect', sa.String(length=40), nullable=False),
     sa.Column('rule', sa.JSON(), nullable=False),
     sa.Column('enabled', sa.Boolean(), nullable=False),
     sa.Column('locked', sa.Boolean(), nullable=False),
@@ -341,7 +341,7 @@ def upgrade() -> None:
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('run_id', sa.String(length=36), nullable=False),
     sa.Column('agent_key', sa.String(length=40), nullable=False),
-    sa.Column('phase', sa.String(length=30), nullable=False),
+    sa.Column('phase', sa.String(length=40), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('mode', sa.String(length=30), nullable=False),
     sa.Column('attempts', sa.Integer(), nullable=False),

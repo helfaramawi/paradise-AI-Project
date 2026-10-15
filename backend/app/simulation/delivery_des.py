@@ -12,8 +12,6 @@ triangular(1.5, 2.5, 4) month durations, staggered starts.
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import simpy
 
@@ -51,7 +49,7 @@ def _run(projects: list[dict[str, Any]], capacity: float) -> dict[str, float]:
 
     def project(p: dict[str, Any]):
         yield env.timeout(p["start"])
-        for crew, dur in zip(p["crews"], p["durations"]):
+        for crew, dur in zip(p["crews"], p["durations"], strict=True):
             need = min(float(crew), cap)
             yield pool.get(need)
             yield env.timeout(dur)

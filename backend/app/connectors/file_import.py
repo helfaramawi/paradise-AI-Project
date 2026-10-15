@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Any
-
 from openpyxl import load_workbook
 from pydantic import ValidationError
 
@@ -29,14 +27,14 @@ def _rows_from_bytes(filename: str, content: bytes) -> list[dict[str, str]]:
     if name.endswith(".csv"):
         text = content.decode("utf-8-sig", errors="strict")
         reader = csv.DictReader(io.StringIO(text))
-        rows = [dict(r) for _, r in zip(range(MAX_ROWS), reader)]
+        rows = [dict(r) for _, r in zip(range(MAX_ROWS), reader, strict=False)]
     elif name.endswith(".xlsx"):
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
         ws = wb.worksheets[0]
         it = ws.iter_rows(values_only=True)
         header = [str(h).strip() if h is not None else "" for h in next(it)]
         rows = []
-        for _, vals in zip(range(MAX_ROWS), it):
+        for _, vals in zip(range(MAX_ROWS), it, strict=False):
             rows.append({header[i]: ("" if v is None else str(v)) for i, v in enumerate(vals) if i < len(header)})
     else:
         raise ConnectorError("Unsupported file type (use .csv or .xlsx)")

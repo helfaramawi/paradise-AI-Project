@@ -246,7 +246,7 @@ class AgentExecution(Base):
     id: Mapped[str] = _id()
     run_id: Mapped[str] = mapped_column(ForeignKey("decision_runs.id", ondelete="CASCADE"), index=True)
     agent_key: Mapped[str] = mapped_column(ForeignKey("agent_definitions.key"))
-    phase: Mapped[str] = mapped_column(String(30))  # independent_analysis | court | risk | governance
+    phase: Mapped[str] = mapped_column(String(40))  # independent_analysis | court | risk | governance
     status: Mapped[str] = mapped_column(String(20), default="running")
     mode: Mapped[str] = mapped_column(String(30), default="rule_based")
     attempts: Mapped[int] = mapped_column(Integer, default=1)
@@ -407,7 +407,7 @@ class GovernancePolicy(Base):
     name_ar: Mapped[str] = mapped_column(String(200))
     description_en: Mapped[str] = mapped_column(Text)
     description_ar: Mapped[str] = mapped_column(Text)
-    effect: Mapped[str] = mapped_column(String(20))  # deny | require_approval | require_acknowledgement
+    effect: Mapped[str] = mapped_column(String(40))  # deny | require_approval | require_acknowledgement
     rule: Mapped[dict[str, Any]] = mapped_column(JSON)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     locked: Mapped[bool] = mapped_column(Boolean, default=False)  # non-negotiable policies cannot be disabled

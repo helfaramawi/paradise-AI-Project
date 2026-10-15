@@ -193,7 +193,7 @@ async def stream_events(run_id: str, request: Request, user: Annotated[User, req
         while True:
             if await request.is_disconnected():
                 break
-            def fetch():
+            def fetch(last: int = last):
                 with SessionLocal() as db:
                     evs = db.scalars(select(WorkflowEvent).where(WorkflowEvent.run_id == run_id, WorkflowEvent.id > last)
                                      .order_by(WorkflowEvent.id).limit(200)).all()
