@@ -1,0 +1,62 @@
+# Future Mirror AI — local / on-premises deployment
+#   docker compose up -d --build                      # core platform on http://localhost:8080
+#   docker compose --profile automation up -d         # + n8n on http://localhost:5678
+name: future-mirror
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-future_mirror}
+      POSTGRES_USER: ${POSTGRES_USER:-fm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fm} -d ${POSTGRES_DB:-future_mirror}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: future-mirror-backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FM_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-fm}:${POSTGRES_PASSWORD:-change-me-db}@db:5432/${POSTGRES_DB:-future_mirror}
+      FM_ENVIRONMENT: ${FM_ENVIRONMENT:-development}
+      FM_CORS_ORIGINS: '["http://localhost:8080"]'
+      FM_N8N_BASE_URL: ${FM_N8N_BASE_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: future-mirror-frontend
+    ports:
+      - "${FM_HTTP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:1.72.1
+    profiles: ["automation"]
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: Africa/Cairo
+    volumes:
+      - n8ndata:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  n8ndata:

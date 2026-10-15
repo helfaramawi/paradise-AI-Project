@@ -51,8 +51,12 @@ test("guided demo: question → agents → court → futures → time machine �
 
   // Scene 5 — Three futures with live recalculation
   await page.goto("/futures");
-  await expect(page.getByTestId("future-A")).toBeVisible();
+  await expect(page.getByTestId("future-C")).toBeVisible();
+  await page.waitForTimeout(1200);
   await shot(page, "06-three-futures");
+  await page.getByTestId("future-A").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  await shot(page, "06a-three-futures-cards");
   const slider = page.locator('input[type="range"]').first();
   await slider.fill("12");
   await expect(page.getByText("What-if mode")).toBeVisible({ timeout: 15_000 });

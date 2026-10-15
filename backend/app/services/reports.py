@@ -22,7 +22,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+_ASSETS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "fonts")
 FONT_CANDIDATES = [
+    (os.path.join(_ASSETS, "DejaVuSans.ttf"), os.path.join(_ASSETS, "DejaVuSans-Bold.ttf")),  # vendored, Arabic-capable
     ("/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf", "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf"),
     ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
 ]

@@ -34,20 +34,20 @@ const AGENT_NAMES: Record<string, [string, string]> = {
 type NodeState = "pending" | "active" | "done" | "failed";
 
 function StageNode({ data }: NodeProps) {
-  const d = data as { label: string; state: NodeState; ms?: number };
+  const d = data as { label: string; state: NodeState; ms?: number; reverse?: boolean };
   return (
     <div className={cn("w-[150px] rounded-xl border px-3 py-2 text-[11px] shadow-sm transition",
       d.state === "done" && "border-good/50 bg-good/10",
       d.state === "active" && "border-accent bg-accent/15 animate-pulseRing",
       d.state === "failed" && "border-critical bg-critical/10",
       d.state === "pending" && "border-line bg-panel")}>
-      <Handle type="target" position={Position.Left} className="!bg-line" />
+      <Handle type="target" position={d.reverse ? Position.Right : Position.Left} className="!bg-line" />
       <div className="flex items-center gap-1.5 font-semibold text-ink">
         {d.state === "done" ? <CheckCircle2 className="h-3.5 w-3.5 text-good" /> : d.state === "active" ? <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" /> : d.state === "failed" ? <XCircle className="h-3.5 w-3.5 text-critical" /> : <Clock className="h-3.5 w-3.5 text-muted" />}
         {d.label}
       </div>
       {d.ms !== undefined && <div className="mt-0.5 text-muted num">{d.ms.toFixed(0)} ms</div>}
-      <Handle type="source" position={Position.Right} className="!bg-line" />
+      <Handle type="source" position={d.reverse ? Position.Left : Position.Right} className="!bg-line" />
     </div>
   );
 }
@@ -142,14 +142,21 @@ export default function ExecutionRoom() {
     const n: Node[] = [];
     const e: Edge[] = [];
     const lbl = (s: [string, string, string]) => (lang === "ar" ? s[2] : s[1]);
-    const x0 = 0;
     const order = STAGES.filter((s) => s[0] !== "independent_analysis");
-    order.forEach((s, i) => {
-      const x = i < 3 ? x0 + i * 190 : x0 + (i + 1) * 190 + 20;
-      n.push({ id: s[0], type: "stage", position: { x, y: 150 }, data: { label: lbl(s), state: state.stage[s[0]] || "pending", ms: state.stageMs[s[0]] } });
+    // Two-row "snake" layout: row 1 left→right, agents fan out, row 2 right→left.
+    const pos: Record<string, { x: number; y: number; reverse?: boolean }> = {
+      intake: { x: 0, y: 70 }, data_validation: { x: 175, y: 70 }, agent_assignment: { x: 350, y: 70 },
+      scenario_generation: { x: 740, y: 70 }, quantitative_simulation: { x: 915, y: 70 },
+      agent_court: { x: 915, y: 360, reverse: true }, risk_assessment: { x: 740, y: 360, reverse: true },
+      governance_review: { x: 565, y: 360, reverse: true }, executive_recommendation: { x: 390, y: 360, reverse: true },
+    };
+    order.forEach((s) => {
+      const p = pos[s[0]];
+      n.push({ id: s[0], type: "stage", position: { x: p.x, y: p.y }, width: 150, height: 52,
+        data: { label: lbl(s), state: state.stage[s[0]] || "pending", ms: state.stageMs[s[0]], reverse: p.reverse } });
     });
     PHASE1.forEach((k, i) => {
-      n.push({ id: `a_${k}`, type: "agent", position: { x: 3 * 190 + 10, y: i * 46 }, data: { k, label: pick(...AGENT_NAMES[k]), state: state.agent[k] || "pending", findings: state.findings[k] } });
+      n.push({ id: `a_${k}`, type: "agent", position: { x: 545, y: -40 + i * 46 }, width: 150, height: 40, data: { k, label: pick(...AGENT_NAMES[k]), state: state.agent[k] || "pending", findings: state.findings[k] } });
       e.push({ id: `e1${k}`, source: "agent_assignment", target: `a_${k}`, animated: state.agent[k] === "active" });
       e.push({ id: `e2${k}`, source: `a_${k}`, target: "scenario_generation", animated: state.stage.scenario_generation === "active" });
     });
@@ -157,7 +164,7 @@ export default function ExecutionRoom() {
       if (order[i][0] === "agent_assignment") continue;
       e.push({ id: `s${i}`, source: order[i][0], target: order[i + 1][0], animated: state.stage[order[i + 1][0]] === "active" });
     }
-    return { nodes: n, edges: e.map((x) => ({ ...x, style: { stroke: "rgb(var(--line))", strokeWidth: 1.5 } })) };
+    return { nodes: n, edges: e.map((x) => ({ ...x, type: "smoothstep", style: { stroke: "rgb(var(--muted) / 0.6)", strokeWidth: 1.5 } })) };
   }, [state, lang, pick]);
 
   if (!runId) return <Empty>{t("ex.noRun")}</Empty>;
