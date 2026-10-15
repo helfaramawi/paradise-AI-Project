@@ -12,6 +12,8 @@ triangular(1.5, 2.5, 4) month durations, staggered starts.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import simpy
 

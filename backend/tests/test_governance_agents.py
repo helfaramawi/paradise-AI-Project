@@ -119,7 +119,6 @@ def test_findings_are_bilingual_and_evidenced():
 
 
 def test_recommendation_is_not_majority_vote():
-    ctx = _ctx()
     # 3 low-quality supports for C vs 1 high-quality support for B
     weak = [Finding(a, f"W-{a}", "hypothesis", "t", "s", "s", 0.2, strategy_key="C", stance="support", phase="court")
             for a in ("cfo", "coo", "hr")]
@@ -150,5 +149,6 @@ def test_intake_strips_control_chars():
 
 def test_levers_validation_rejects_out_of_range():
     import pytest
-    with pytest.raises(Exception):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
         Levers(contractor_reduction=1.5)
