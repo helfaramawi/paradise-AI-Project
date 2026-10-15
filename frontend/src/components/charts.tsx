@@ -45,7 +45,7 @@ function WithTable({ table, children }: { table: ReactNode; children: ReactNode 
 
 /** Median line + P10–P90 band per series over months. One y-axis. */
 export function FanChart({ series, height = 260, unit = "", highlightMonth, yDomain }: {
-  series: { key: string; band: Band }[];
+  series: { key: string; band: Band; label?: string }[];
   height?: number;
   unit?: string;
   highlightMonth?: number;
@@ -62,13 +62,14 @@ export function FanChart({ series, height = 260, unit = "", highlightMonth, yDom
     return row;
   });
   const rtl = dir === "rtl";
+  const nameOf = (k: string) => series.find((s) => s.key === k)?.label || futureLabel(k, lang);
   const table = (
     <table className="w-full text-xs num">
       <thead className="sticky top-0 bg-panel text-muted">
         <tr>
           <th className="p-1.5 text-start">{t("month")}</th>
           {series.map((s) => (
-            <th key={s.key} className="p-1.5 text-end">{futureLabel(s.key, lang)} ({t("median")} [{t("range")}])</th>
+            <th key={s.key} className="p-1.5 text-end">{nameOf(s.key)} ({t("median")} [{t("range")}])</th>
           ))}
         </tr>
       </thead>
@@ -97,11 +98,11 @@ export function FanChart({ series, height = 260, unit = "", highlightMonth, yDom
           <Tooltip {...tooltipStyle}
             formatter={(v: unknown, name: string) => {
               const k = name.split("_")[0];
-              const lbl = futureLabel(k, lang) + (name.endsWith("_band") ? ` ${t("range")}` : ` ${t("median")}`);
+              const lbl = nameOf(k) + (name.endsWith("_band") ? ` ${t("range")}` : ` ${t("median")}`);
               const val = Array.isArray(v) ? `${num(v[0], 2)} – ${num(v[1], 2)}` : num(v as number, 2);
               return [`${val}${unit ? " " + unit : ""}`, lbl];
             }} />
-          <Legend formatter={(v: string) => futureLabel(v.split("_")[0], lang)} payload={series.map((s) => ({
+          <Legend formatter={(v: string) => nameOf(v.split("_")[0])} payload={series.map((s) => ({
             value: `${s.key}_mid`, type: "line", color: FUTURE_COLOR[s.key], id: s.key }))} />
           {highlightMonth !== undefined && (
             <ReferenceLine x={data[highlightMonth]?.label as string} stroke="rgb(var(--accent2))" strokeDasharray="4 4" />

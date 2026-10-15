@@ -61,8 +61,8 @@ export default function SimulationLab() {
                 </div>
               )}
               <div className="grid gap-5 lg:grid-cols-2">
-                <Card title={t("fu.savingsPath")}><FanChart series={[{ key: "A", band: r.trajectory.savings_run_rate }]} height={220} /></Card>
-                <Card title={t("tm.delay")}><FanChart series={[{ key: "B", band: r.trajectory.delay_pct }]} height={220} /></Card>
+                <Card title={t("fu.savingsPath")}><FanChart series={[{ key: "A", band: r.trajectory.savings_run_rate, label: pick("Custom strategy", "استراتيجية مخصصة") }]} height={220} /></Card>
+                <Card title={t("tm.delay")}><FanChart series={[{ key: "B", band: r.trajectory.delay_pct, label: pick("Custom strategy", "استراتيجية مخصصة") }]} height={220} /></Card>
               </div>
               <div className="grid gap-5 lg:grid-cols-2">
                 <Card title={t("lab.tornado")}><Tornado rows={r.sensitivity} base={r.sensitivity[0]?.base_net_benefit ?? 0} /></Card>

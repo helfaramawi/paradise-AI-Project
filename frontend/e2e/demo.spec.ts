@@ -47,6 +47,8 @@ test("guided demo: question → agents → court → futures → time machine �
   await shot(page, "05-agent-court");
   await page.getByRole("tab", { name: /Future Collision Detector/ }).click();
   await expect(page.getByTestId("collision-card").first()).toBeVisible();
+  await page.getByTestId("collision-card").first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
   await shot(page, "05b-collision-detector");
 
   // Scene 5 — Three futures with live recalculation
@@ -78,7 +80,7 @@ test("guided demo: question → agents → court → futures → time machine �
   await page.goto("/lab");
   await page.getByTestId("lab-run").click();
   await expect(page.getByText("Sensitivity (tornado)")).toBeVisible();
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(2000);
   await shot(page, "10-lab");
 
   // Scene 7 — governance gate: Future A blocked; Future B submitted
