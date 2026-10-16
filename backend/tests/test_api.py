@@ -298,6 +298,30 @@ def test_connectors_honest_status(client):
     assert r.status_code == 422  # secrets never stored in config
 
 
+def test_connector_settings_validation_and_d365(client, monkeypatch):
+    admin = login(client, "admin@futuremirror.demo")
+    conns = {c["kind"]: c for c in client.get("/api/v1/connectors", headers=admin).json()}
+    fo = conns["d365_fo"]
+    assert fo["implementation"] == "adapter" and fo["secret_env"] == ["FM_D365_FO_CLIENT_SECRET"]
+    assert conns["odoo"]["secret_env"] == ["FM_ODOO_API_KEY"] and conns["sap"]["implementation"] == "interface_only"
+    url = f"/api/v1/connectors/{fo['id']}"
+    for bad in ({"environment_url": "javascript:alert(1)"}, {"date_from": "01/01/2026"},
+                {"date_from": "2026-12-31", "date_to": "2026-01-01"}, {"account_mapping": {"61": "salary-ish"}},
+                {"account_mapping": ["61"]}, {"legal_entity": "eg01' or 1 eq 1"}, {"client_secret": "x"}):
+        assert client.patch(url, json={"config": bad}, headers=admin).status_code == 422, bad
+    analyst = login(client, "analyst@futuremirror.demo")
+    assert client.patch(url, json={"config": {"tenant_id": "t"}}, headers=analyst).status_code == 403
+    cfg = {"environment_url": "https://contoso.operations.dynamics.com", "tenant_id": "tid", "client_id": "cid",
+           "date_from": "2026-01-01", "date_to": "2026-12-31", "account_mapping": {"61": "personnel"}}
+    saved = client.patch(url, json={"config": cfg}, headers=admin).json()
+    assert saved["config"]["account_mapping"] == {"61": "personnel"} and saved["secret_configured"] is False
+    r = client.post(f"{url}/test", headers=admin).json()
+    assert r["ok"] is False and "FM_D365_FO_CLIENT_SECRET" in r["message"]
+    monkeypatch.setenv("FM_D365_FO_CLIENT_SECRET", "s3cret")
+    listed = {c["kind"]: c for c in client.get("/api/v1/connectors", headers=admin).json()}
+    assert listed["d365_fo"]["secret_configured"] is True and "s3cret" not in str(listed)
+
+
 def test_audit_chain_valid(client):
     admin = login(client, "admin@futuremirror.demo")
     a = client.get("/api/v1/admin/audit", headers=admin).json()

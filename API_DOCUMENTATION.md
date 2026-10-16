@@ -33,8 +33,8 @@
 | POST | `/datasets/validate` | dataset.read | validate a baseline document |
 | POST | `/datasets/{id}/import` | dataset.write | multipart CSV/XLSX (`field,value` or `category,amount`) → new version + reconciliation |
 | GET | `/datasets/synthetic/ledger` | dataset.read | generated synthetic GL and project register |
-| GET | `/connectors` | dataset.read | connector registry |
-| PATCH | `/connectors/{id}` | connector.manage | non-secret config (secret-like keys rejected) |
+| GET | `/connectors` | dataset.read | connector registry, with `implementation`, `secret_env` (variable names) and `secret_configured` (boolean, never the value) |
+| PATCH | `/connectors/{id}` | connector.manage | non-secret config, validated (URLs, ISO dates, account mapping to known categories); secret-like keys rejected |
 | POST | `/connectors/{id}/test` | connector.manage | connection test (`verified_live` flag) |
 | POST | `/connectors/{id}/sync` | dataset.write | read-only sync → reconciliation (+ new version if changed) |
 | GET | `/governance/policies` | governance.read | policies |

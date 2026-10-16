@@ -28,7 +28,8 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 | RBAC (8 roles, 19 permissions), JWT, tenant isolation, tamper-evident audit chain, emergency stop | ✅ working |
 | Synthetic ERP connector, CSV/Excel import with reconciliation | ✅ working |
 | Odoo XML-RPC adapter | ⚠️ implemented, **not verified** against a live Odoo instance |
-| D365 F&O / Business Central / SAP / REST / SQL connectors | ⚠️ interface definitions only |
+| Dynamics 365 F&O and Business Central OData connectors, with a settings form | ⚠️ implemented and tested against mocked endpoints, **not verified** against a live tenant |
+| SAP / REST / SQL connectors | ⚠️ interface definitions only |
 | n8n automation (dry-run, idempotency, approval gates, retries) | ✅ dry-run working; live delivery needs an n8n URL (`FM_N8N_BASE_URL`) |
 | Docker Compose (PostgreSQL, API, nginx reverse proxy, optional n8n) | ✅ built and verified |
 

@@ -9,8 +9,8 @@ Everything below was actually executed in this environment. Results are reported
 | Suite | Command | Result |
 |---|---|---|
 | Lint (ruff E/F/W/B) | `cd backend && ruff check app tests` | ✅ all checks passed |
-| Backend unit + integration + security (SQLite) | `cd backend && pytest -q` | ✅ **56 passed** (≈10 s) |
-| Same suite on **PostgreSQL 16** | `FM_DATABASE_URL=postgresql+psycopg2://… pytest -q` | ✅ **56 passed** (≈11 s) |
+| Backend unit + integration + security (SQLite) | `cd backend && pytest -q` | ✅ **62 passed** (≈12 s) |
+| Same suite on **PostgreSQL 16** | `FM_DATABASE_URL=postgresql+psycopg2://… pytest -q` | ✅ **62 passed** (≈11 s) |
 | Frontend type check (strict) + production build | `npm run build` | ✅ no type errors, build OK |
 | End-to-end, dev stack (Vite + uvicorn + PostgreSQL) | `npx playwright test` | ✅ 2/2 passed (8-scene demo ≈ 50 s; tablet layout) |
 | End-to-end, **Docker stack** (nginx + API + PostgreSQL, fresh volume) | `E2E_BASE_URL=http://localhost:8080 npx playwright test` | ✅ 2/2 passed |
@@ -19,7 +19,7 @@ Everything below was actually executed in this environment. Results are reported
 
 One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` column too short for `require_acknowledgement`; SQLite does not enforce lengths). It was fixed and the migration regenerated. Both databases now run in CI.
 
-## 2. Backend tests (56)
+## 2. Backend tests (62)
 
 **Simulation (`test_simulation.py`, 14)**
 - reproducibility (same seed → identical summaries and trajectories);
@@ -52,7 +52,14 @@ One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` col
 - control-character sanitisation;
 - lever range validation.
 
-**API, security and integration (`test_api.py`, 28)**
+**Dynamics 365 connectors (`test_connectors_d365.py`, 5)**, run against a mocked Entra ID token endpoint and OData service:
+- longest-prefix account mapping, with unmatched accounts ignored and reported;
+- F&O client-credentials token request (scope `<env>/.default`), legal-entity filter with `cross-company`, `@odata.nextLink` paging, main-account segment parsing, reconciliation;
+- authentication failure, missing settings and missing secret reported without raising;
+- the row limit is enforced;
+- Business Central `generalLedgerEntries` URL, date filter and debit − credit amounts.
+
+**API, security and integration (`test_api.py`, 29)**
 - health and readiness; 401 without or with a bad token; bad password; RBAC (viewer → 403); security headers;
 - **tenant isolation** (a second tenant gets 404 and an empty list);
 - full pipeline dossier (8 agent types, ≥ 3 Red Team objections, COL-01, 4 scenarios, model version, ≥ 15 executions, A denied, agent probe denied);
@@ -68,6 +75,7 @@ One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` col
 - PDF and Excel in EN and AR;
 - dataset versioning (provenance → user_input, DQ-002 cleared) and CSV import reconciliation (unmapped category reported, bad file 422);
 - connector honesty (SAP interface-only, Odoo not verified, synthetic ERP reconciles to 0, secret keys rejected);
+- connector settings validation (bad URL, bad date, reversed period, unknown category, OData-injection characters and secret keys all rejected with 422; analyst gets 403; secret presence is reported without ever returning the value);
 - audit chain valid; persistence across a new application instance; dashboard.
 
 ## 3. End-to-end demo (`frontend/e2e/demo.spec.ts`)
@@ -132,6 +140,6 @@ Authentication required · invalid token · wrong password · login rate limitin
 ## 7. Known gaps in testing
 
 - The LLM providers (Anthropic, OpenAI, Ollama) are implemented but **not exercised against live endpoints** (no credentials in this environment). The narration path is covered only by its failure handling (a warning, with the structured findings kept).
-- The Odoo adapter has not been run against a real Odoo server. n8n live delivery has not been run against a real n8n instance (the dry-run path is tested).
+- The Odoo and Dynamics 365 adapters have not been run against real servers (the D365 adapters are covered by mocked HTTP tests). n8n live delivery has not been run against a real n8n instance (the dry-run path is tested).
 - No frontend unit tests (components are covered through E2E).
 - Visual review covered the screens in the screenshot set; there are no formal accessibility audits (axe) or cross-browser runs (Chromium only).
