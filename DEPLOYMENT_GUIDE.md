@@ -53,7 +53,7 @@ The CA is passed as a BuildKit secret and is **not** stored in the images. The i
 | `FM_AGENT_TIMEOUT_SECONDS` / `FM_PIPELINE_TIMEOUT_SECONDS` | 20 / 180 | execution limits |
 | `FM_N8N_BASE_URL` / `FM_N8N_API_KEY` | — | enables live webhook delivery |
 | `FM_EXTERNAL_ACTIONS_ENABLED` | **false** | keep false in the MVP (GOV-003 / GOV-014) |
-| `FM_<CONNECTOR>_API_KEY` | — | connector secrets (e.g. `FM_ODOO_API_KEY`) |
+| `FM_ODOO_API_KEY`, `FM_D365_FO_CLIENT_SECRET`, `FM_D365_BC_CLIENT_SECRET` | — | connector secrets (see §8) |
 | `FM_SKIP_STARTUP_MIGRATIONS` | — | set `1` to run migrations as a separate job |
 
 ## 4. Production hardening checklist
@@ -86,3 +86,26 @@ cd frontend && npm install && npm run dev        # http://localhost:5173
 2. Import `automation/n8n/decision_review_notification.json` and activate it.
 3. Set `FM_N8N_BASE_URL=http://n8n:5678` and restart the backend.
 4. In the Automation Center, a **Live run** of a non-consequential workflow posts to `…/webhook/future-mirror/<key>` with an idempotency key. Consequential workflows remain blocked by GOV-014.
+
+## 8. Enterprise connectors (read-only)
+
+Configure connectors in **Data Connections → Settings** (permission `connector.manage`, the admin role by default). The form stores non-secret settings only. Every save is audited, and the API rejects any key that looks like a secret. Secrets come from the server environment:
+
+| Connector | Secret variable | Settings in the form |
+|---|---|---|
+| Odoo (XML-RPC) | `FM_ODOO_API_KEY` | URL, database, username, period, account mapping |
+| Dynamics 365 Finance & Operations (OData) | `FM_D365_FO_CLIENT_SECRET` | environment URL, Entra tenant ID, app (client) ID, legal entity, period, account mapping; optional entity/field overrides |
+| Dynamics 365 Business Central (API v2.0) | `FM_D365_BC_CLIENT_SECRET` | Entra tenant ID, app (client) ID, environment name, company ID, period, account mapping |
+
+After setting a secret, restart the backend with `docker compose up -d backend`. The settings card shows whether the secret is present, never its value. Then press **Test** and, once it reports success, press **Sync**. A sync that changes figures creates a new dataset version, with those fields tagged `imported`.
+
+**Account mapping.** Each row maps an account-code prefix to a cost category (personnel, contractors, software, infrastructure, facilities, vendor services, other G&A), and the longest matching prefix wins. For D365, accounts that match no prefix (balance sheet, revenue) are ignored and reported as `ignored_accounts` / `ignored_total`. For F&O the main account is the first segment of `LedgerAccount`. Amounts are divided by `amount_divisor` (default 1,000,000) to give EGP millions.
+
+**Dynamics 365 app registration** (one-time, done by the customer's Entra ID admin):
+1. Entra admin center → App registrations → New registration. Copy the *Application (client) ID* and *Directory (tenant) ID*.
+2. Certificates & secrets → New client secret. Put its value in `FM_D365_FO_CLIENT_SECRET` or `FM_D365_BC_CLIENT_SECRET`.
+3. **F&O:** System administration → Setup → Microsoft Entra ID applications → add the client ID, mapped to a user with read-only access to general-ledger data.
+   **Business Central:** Microsoft Entra applications → add the client ID, grant consent and assign read-only permission sets (e.g. `D365 READ`).
+4. Allow outbound HTTPS from the backend to `login.microsoftonline.com` and to the F&O environment or `api.businesscentral.dynamics.com`.
+
+The connectors use the client-credentials flow, read `GeneralJournalAccountEntries` (F&O) or `generalLedgerEntries` (BC) for the configured period, follow `@odata.nextLink` paging and stop at `max_rows` (default 500,000). They never write to the ERP. **Status: implemented and tested against mocked Entra ID / OData responses; not yet verified against a live tenant.**

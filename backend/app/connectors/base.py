@@ -51,6 +51,7 @@ class ConnectorError(RuntimeError):
 class ReadOnlyConnector(ABC):
     kind: str = "abstract"
     implementation: str = "interface_only"  # working | adapter | interface_only
+    secret_env: tuple[str, ...] = ()  # FM_<KIND>_<NAME> environment variables holding secrets
 
     def __init__(self, config: dict[str, Any] | None = None, secrets: dict[str, str] | None = None):
         self.config = config or {}

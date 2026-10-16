@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, PlugZap, RefreshCw, Upload } from "lucide-react";
+import { Database, PlugZap, RefreshCw, Settings2, Upload } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth, useI18n } from "@/lib/app";
 import { Badge, Button, Card, ErrorBox, Input, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import ConnectorSettings, { CONNECTOR_FIELDS } from "@/components/ConnectorSettings";
 import type { DictKey } from "@/i18n/dict";
 
 const EDITABLE = ["annual_opex", "annual_revenue", "gross_margin_pct", "utilization_pct", "avg_project_delay_pct", "csat_pct",
@@ -19,6 +20,7 @@ export default function DataConnections() {
   const ledger = useQuery({ queryKey: ["ledger"], queryFn: () => api("/datasets/synthetic/ledger") });
   const [msg, setMsg] = useState<Record<string, any>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const ds = datasets.data?.[0];
   const cur = ds?.versions?.[0];
@@ -50,7 +52,11 @@ export default function DataConnections() {
               <div className="mt-1 flex items-center gap-2 text-[11px] text-muted"><code>{c.kind}</code> · {c.status.replace(/_/g, " ")}</div>
               {c.last_sync_at && <div className="text-[11px] text-muted">{date(c.last_sync_at)}</div>}
               {can("connector.manage") && c.kind !== "csv" && (
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {CONNECTOR_FIELDS[c.kind] && (
+                    <Button size="sm" variant={editing === c.id ? "primary" : "outline"} icon={Settings2} data-testid={`conn-configure-${c.kind}`}
+                      onClick={() => setEditing(editing === c.id ? null : c.id)}>{t("dc.configure")}</Button>
+                  )}
                   <Button size="sm" variant="outline" icon={PlugZap} onClick={() => test.mutate(c.id)}>{t("dc.test")}</Button>
                   {c.implementation !== "interface_only" && <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => sync.mutate(c.id)}>{t("dc.sync")}</Button>}
                 </div>
@@ -66,6 +72,9 @@ export default function DataConnections() {
         </div>
         <ErrorBox error={test.error || sync.error} />
       </Card>
+      {editing && conns.data?.find((c) => c.id === editing) && (
+        <ConnectorSettings key={editing} conn={conns.data.find((c) => c.id === editing)} onClose={() => setEditing(null)} />
+      )}
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <Card title={`${t("dc.dataset")}: ${ds.name}`} subtitle={`v${cur.version} · ${cur.note} · ${cur.checksum.slice(0, 12)}`}
           action={<Badge tone="warn">{t("chip.synthetic")}</Badge>}>

@@ -2,8 +2,9 @@
 
 * Odoo: implemented XML-RPC adapter (read-only). NOT verified against a live Odoo instance
   in this environment - status remains ``adapter`` until a successful test_connection.
-* Dynamics 365 F&O / Business Central and SAP: interface definitions with the documented
-  OData entity sets they will read. They raise ``ConnectorError`` until implemented.
+* Dynamics 365 F&O / Business Central: OData adapters in ``d365.py`` (status ``adapter``).
+* SAP, generic REST and SQL: interface definitions with the documented entity sets they will
+  read. They raise ``ConnectorError`` until implemented.
 """
 
 from __future__ import annotations
@@ -13,12 +14,14 @@ from typing import Any
 
 from ..simulation.assumptions import Baseline
 from .base import ConnectorError, ConnectorResult, ReadOnlyConnector, reconcile
+from .d365 import D365BusinessCentralConnector, D365FinanceOperationsConnector
 from .synthetic import SyntheticERPConnector
 
 
 class OdooConnector(ReadOnlyConnector):
     kind = "odoo"
     implementation = "adapter"
+    secret_env = ("API_KEY",)
 
     def _client(self):  # noqa: ANN202
         url = (self.config.get("url") or "").rstrip("/")
@@ -68,16 +71,6 @@ class _InterfaceOnly(ReadOnlyConnector):
 
     def fetch_cost_profile(self, base: Baseline | None = None) -> ConnectorResult:
         raise ConnectorError(f"{self.kind} connector not implemented in this release")
-
-
-class D365FinanceOperationsConnector(_InterfaceOnly):
-    kind = "d365_fo"
-    entity_sets = ["GeneralJournalAccountEntries", "MainAccounts", "ProjectsV2", "Workers"]
-
-
-class D365BusinessCentralConnector(_InterfaceOnly):
-    kind = "d365_bc"
-    entity_sets = ["generalLedgerEntries", "accounts", "projects", "employees"]
 
 
 class SAPConnector(_InterfaceOnly):
