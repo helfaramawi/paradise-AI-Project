@@ -63,7 +63,7 @@ The CA is passed as a BuildKit secret and is **not** stored in the images. The i
 - [ ] Change `POSTGRES_PASSWORD`; restrict network access to the database.
 - [ ] Terminate TLS in front of nginx (or add certificates to `frontend/nginx.conf`).
 - [ ] Set `FM_CORS_ORIGINS` to the real origin.
-- [ ] Back up the `pgdata` volume (`pg_dump`), and test the restore.
+- [ ] Back up the database on a schedule (`ops/backup.sh` or `ops\backup.bat /nopause`, e.g. from cron or Windows Task Scheduler), copy `backups/` off the machine, and test `ops/restore.sh` / `ops\restore.bat` on a spare machine.
 - [ ] Run more than one uvicorn worker (`--workers`), or several backend replicas behind nginx; SSE works from any replica because events are read from the database.
 - [ ] Add a queue and a durable LangGraph checkpointer if runs must survive restarts (see ARCHITECTURE §7).
 - [ ] Ship logs (stdout JSON) to your SIEM; alert on `platform.emergency_stop_on` and `approval.blocked` audit actions.
