@@ -69,9 +69,9 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 
 | Task | Windows | macOS / Linux | What it does |
 |---|---|---|---|
-| Start | `ops\start.bat` | `ops/start.sh` | Starts the app (builds it the first time), waits until it is ready and opens http://localhost:8080 |
+| Start | `ops\start.bat` | `ops/start.sh` | Starts the app (rebuilding it if the code changed, e.g. after `git pull`), waits until it is ready and opens http://localhost:8080 |
 | Stop | `ops\stop.bat` | `ops/stop.sh` | Stops the app. Data is kept |
-| Restart | `ops\restart.bat` | `ops/restart.sh` | Stops and starts the app, e.g. after editing `.env` |
+| Restart | `ops\restart.bat` | `ops/restart.sh` | Stops and starts the app (rebuilding if the code changed), e.g. after editing `.env` |
 | Back up | `ops\backup.bat` | `ops/backup.sh` | Saves the database to `backups/fm_YYYYMMDD_HHMMSS.dump` (works while the app runs) |
 | Restore | `ops\restore.bat [file]` | `ops/restore.sh [file]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then replaces all data with the chosen backup |
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
