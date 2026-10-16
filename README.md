@@ -63,6 +63,21 @@ npm run dev                                       # http://localhost:5173 (proxi
 
 On startup the API runs the Alembic migrations and seeds the demonstration workspace.
 
+### Day-to-day operation scripts
+
+The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` file. On macOS/Linux, run the `.sh` file from the project folder (for example `ops/start.sh`). They need Docker Desktop to be running.
+
+| Task | Windows | macOS / Linux | What it does |
+|---|---|---|---|
+| Start | `ops\start.bat` | `ops/start.sh` | Starts the app (builds it the first time), waits until it is ready and opens http://localhost:8080 |
+| Stop | `ops\stop.bat` | `ops/stop.sh` | Stops the app. Data is kept |
+| Restart | `ops\restart.bat` | `ops/restart.sh` | Stops and starts the app, e.g. after editing `.env` |
+| Back up | `ops\backup.bat` | `ops/backup.sh` | Saves the database to `backups/fm_YYYYMMDD_HHMMSS.dump` (works while the app runs) |
+| Restore | `ops\restore.bat [file]` | `ops/restore.sh [file]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then replaces all data with the chosen backup |
+| Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
+
+To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`). The `backups/` folder is ignored by git. Copy it somewhere safe (another disk or cloud storage) to protect against losing the computer. Backups contain the database only. Keep your `.env` file safely as well, because it holds the database password and connector secrets.
+
 ### Demo accounts
 
 All demo accounts share the password **`FutureMirror!2026`**.
