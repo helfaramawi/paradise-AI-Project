@@ -4,6 +4,7 @@ rem   make-voiceover.bat            -> Egyptian male voice  (ar-EG-ShakirNeural)
 rem   make-voiceover.bat female     -> Egyptian female voice (ar-EG-SalmaNeural)
 rem   make-voiceover.bat ar-SA-HamedNeural   -> any Edge voice name
 rem Put future-mirror-demo-ar.mp4 and future-mirror-demo-ar.srt in docs\video first.
+rem Optional background music: save it as docs\video\music.mp3 (or .m4a / .wav); it is kept low and ducked under the voice.
 setlocal
 set "FM_RC=0"
 cd /d "%~dp0.."
@@ -40,7 +41,10 @@ if not exist "docs\video\future-mirror-demo-ar.srt" (
 echo Installing / updating the voice engine ^(edge-tts^) ...
 %PY% -m pip install --quiet --upgrade edge-tts || goto fail
 echo Generating the Arabic voice-over with %VOICE% ^(about 3-5 minutes^) ...
-%PY% scripts\voiceover\make_voiceover.py --video docs\video\future-mirror-demo-ar.mp4 --srt docs\video\future-mirror-demo-ar.srt --voice %VOICE% || goto fail
+set "MUSIC_ARG="
+for %%m in (docs\video\music.mp3 docs\video\music.m4a docs\video\music.wav) do if exist "%%m" set "MUSIC_ARG=--music %%m"
+if defined MUSIC_ARG (echo Background music found: %MUSIC_ARG:--music =%) else (echo No background music ^(to add some, save it as docs\video\music.mp3^))
+%PY% scripts\voiceover\make_voiceover.py --video docs\video\future-mirror-demo-ar.mp4 --srt docs\video\future-mirror-demo-ar.srt --voice %VOICE% %MUSIC_ARG% || goto fail
 echo.
 echo Done: docs\video\future-mirror-demo-ar-voice.mp4
 explorer /select,"%CD%\docs\video\future-mirror-demo-ar-voice.mp4"
