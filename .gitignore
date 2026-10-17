@@ -13,3 +13,4 @@ test-results/
 playwright-report/
 *.log
 backups/
+docs/video/*.mp4

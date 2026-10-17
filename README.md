@@ -75,6 +75,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Back up | `ops\backup.bat` | `ops/backup.sh` | Saves the database to `backups/fm_YYYYMMDD_HHMMSS.dump` (works while the app runs) |
 | Restore | `ops\restore.bat [file]` | `ops/restore.sh [file]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then replaces all data with the chosen backup |
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
+| Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`). The `backups/` folder is ignored by git. Copy it somewhere safe (another disk or cloud storage) to protect against losing the computer. Backups contain the database only. Keep your `.env` file safely as well, because it holds the database password and connector secrets.
 
