@@ -176,3 +176,27 @@ def test_sql_server_live():
     assert c.test_connection()["ok"] is True
     res = c.fetch_cost_profile()
     assert res.profile["personnel_cost"] == 41 and res.reconciliation["ignored_accounts"] == 1
+
+
+# ---------------------------------------------------------------- MySQL
+def test_mysql_driver_is_installed():
+    from sqlalchemy import create_engine
+
+    c = SQLConnector({"dialect": "mysql", "host": "db", "database": "erp", "username": "u"}, {"password": "p"})
+    url = c._url()
+    assert url.drivername == "mysql+pymysql" and url.port == 3306  # default port
+    create_engine(url)  # raises if PyMySQL is missing
+    import cryptography  # noqa: F401  needed for MySQL 8 caching_sha2_password logins
+
+
+@pytest.mark.skipif(not os.environ.get("FM_TEST_MYSQL_HOST"), reason="set FM_TEST_MYSQL_HOST/PORT/USER/PASSWORD to run")
+def test_mysql_live():
+    """Live check against a MySQL whose erp.v_gl_expenses holds the same rows as the SQLite fixture."""
+    cfg = {"dialect": "mysql", "host": os.environ["FM_TEST_MYSQL_HOST"], "port": int(os.environ.get("FM_TEST_MYSQL_PORT", 3306)),
+           "database": os.environ.get("FM_TEST_MYSQL_DB", "erp"), "username": os.environ["FM_TEST_MYSQL_USER"],
+           "table": "v_gl_expenses", "account_column": "account", "amount_column": "amount",
+           "date_column": "posting_date", "account_mapping": {**MAPPING, "64": "infrastructure"}, **PERIOD}
+    c = SQLConnector(cfg, {"password": os.environ["FM_TEST_MYSQL_PASSWORD"]})
+    assert c.test_connection()["ok"] is True
+    res = c.fetch_cost_profile()
+    assert res.profile["personnel_cost"] == 41 and res.reconciliation["ignored_accounts"] == 1

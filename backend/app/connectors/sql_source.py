@@ -4,10 +4,11 @@ The query is built with SQLAlchemy Core from validated identifiers (no free-text
 
     SELECT <account>, SUM(<amount>) FROM <schema.table> WHERE <date> BETWEEN :from AND :to GROUP BY <account>
 
-On PostgreSQL the transaction is opened READ ONLY. The password comes from
-``FM_SQL_PASSWORD``. PostgreSQL (psycopg2) and SQL Server (pymssql, FreeTDS bundled in the
-wheel) work out of the box; MySQL needs ``pymysql`` added to the backend image. Use a database
-user with SELECT rights on that one view only. Verified against PostgreSQL 16 and SQL Server 2022.
+On PostgreSQL and MySQL the transaction/session is opened READ ONLY. The password comes from
+``FM_SQL_PASSWORD``. PostgreSQL (psycopg2), SQL Server (pymssql, FreeTDS bundled in the wheel)
+and MySQL/MariaDB (PyMySQL, with ``cryptography`` for MySQL 8 ``caching_sha2_password``) all
+work out of the box. Use a database user with SELECT rights on that one view only. Verified
+against PostgreSQL 16, SQL Server 2022 and MySQL 8.4.
 """
 
 from __future__ import annotations
@@ -102,6 +103,8 @@ class SQLConnector(ReadOnlyConnector):
             with engine.connect() as conn:
                 if self.config["dialect"] == "postgresql":
                     conn = conn.execution_options(postgresql_readonly=True)
+                elif self.config["dialect"] == "mysql":
+                    conn.exec_driver_sql("SET SESSION TRANSACTION READ ONLY")
                 rows = conn.execute(query).all()
         except SQLAlchemyError as exc:
             raise ConnectorError(f"SQL query failed: {_db_message(exc)}") from exc
