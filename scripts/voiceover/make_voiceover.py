@@ -11,10 +11,11 @@ Engines
          ar_JO-kareem-medium). Pass --piper-model path/to/ar_JO-kareem-medium.onnx.
   dummy  Tones of the expected speech length; used to test timing and mixing without a TTS service.
 
-Each caption is spoken at its start time. When a line is longer than the gap before the next
-caption, it is re-synthesised faster (edge) or time-compressed (max 1.35x) so lines never
-overlap and captions stay in sync. The result is loudness-normalised and muxed without
-re-encoding the picture. Requires ffmpeg/ffprobe on PATH.
+Each caption is spoken at natural speed, starting just after it appears. Speech is never sped
+up: when a line needs longer than its caption stays on screen, the picture is held (the last
+frame, caption still visible) until the line has finished plus a short pause, and everything
+after it shifts later. A matching SRT for the new timeline is written next to the output.
+The voice is loudness-normalised (-16 LUFS). Requires ffmpeg/ffprobe (with libx264) on PATH.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import bisect
 import math
 import os
 import re
@@ -33,9 +35,9 @@ import wave
 from dataclasses import dataclass
 from pathlib import Path
 
-GAP = 0.15        # seconds of silence kept before the next caption
-LEAD_IN = 0.12    # small delay after a caption appears before the voice starts
-MAX_TEMPO = 1.35  # never speed speech up beyond this
+LEAD_IN = 0.25    # the caption appears, then the voice starts
+PAUSE = 0.7       # silence after a line before the next caption appears
+FPS = 25
 SR = 48000        # sample rate of the voice track
 
 
@@ -101,8 +103,8 @@ def synth_piper(text: str, out: Path, model: str, length_scale: float) -> None:
         raise SystemExit(f"Piper failed: {res.stderr[-800:]}")
 
 
-def synth_dummy(text: str, out: Path, speed: float) -> None:
-    secs = max(1.0, len(text.split()) * 0.42 / speed)
+def synth_dummy(text: str, out: Path, speed: float, rate: int = 0) -> None:
+    secs = max(1.0, len(text.split()) * 0.42 / speed * 100 / (100 + rate))  # --rate -40 = slow speech, for tests
     run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", f"sine=frequency=220:duration={secs:.2f}",
          "-af", "volume=0.15", str(out)])
 
@@ -124,7 +126,7 @@ async def _synth(args, text: str, out: Path, speed: float) -> None:
     elif args.engine == "piper":
         synth_piper(text, out, args.piper_model, 1 / speed)
     else:
-        synth_dummy(text, out, speed)
+        synth_dummy(text, out, speed, args.rate)
 
 
 # ------------------------------------------------------------------ main
@@ -135,7 +137,7 @@ async def main() -> None:
     ap.add_argument("--out", type=Path)
     ap.add_argument("--engine", choices=["edge", "piper", "dummy"], default="edge")
     ap.add_argument("--voice", default="ar-EG-ShakirNeural")
-    ap.add_argument("--rate", type=int, default=0, help="base speaking-rate change in %% (edge only), e.g. -5 or 8")
+    ap.add_argument("--rate", type=int, default=0, help="speaking-rate change in %% (edge only), e.g. -5 slower, 8 faster")
     ap.add_argument("--piper-model", help="path to a piper .onnx voice (engine piper)")
     ap.add_argument("--keep-temp", action="store_true")
     args = ap.parse_args()
@@ -160,41 +162,69 @@ async def main() -> None:
     args.cache = out.parent / ".voice-cache"  # re-runs reuse lines already synthesised
     args.cache.mkdir(parents=True, exist_ok=True)
     ext = "mp3" if args.engine == "edge" else "wav"
-    placed: list[tuple[Path, float]] = []
+    lines: list[tuple[Path, float]] = []  # (clip, speech duration)
+    freezes: list[tuple[float, float]] = []  # (time in source video, seconds to hold the frame)
     print(f"{len(cues)} lines · engine {args.engine}{' · voice ' + args.voice if args.engine == 'edge' else ''}")
 
     for i, cue in enumerate(cues):
         nxt = cues[i + 1].start if i + 1 < len(cues) else video_len
-        start = cue.start + LEAD_IN
-        slot = max(0.8, nxt - GAP - start)
-        text = speakable(cue.text)
         clip = tmp / f"l{i:03d}.{ext}"
-        await synth(args, text, clip, 1.0)
+        await synth(args, speakable(cue.text), clip, 1.0)
         d = duration(clip)
-        if d > slot:  # too long for its gap: re-synthesise faster, then compress if still needed
-            speed = min(MAX_TEMPO, d / slot * 1.03)
-            await synth(args, text, clip, speed)
-            d = duration(clip)
-            if d > slot:
-                tempo = min(MAX_TEMPO, d / slot)
-                fitted = tmp / f"l{i:03d}-fit.wav"
-                run(["ffmpeg", "-y", "-v", "error", "-i", str(clip), "-filter:a", f"atempo={tempo:.3f}", str(fitted)])
-                clip, d = fitted, duration(fitted)
-        flag = "  (tight)" if d > slot + 0.05 else ""
-        print(f"  {i + 1:>3}/{len(cues)}  {cue.start:7.1f}s  {d:5.1f}s / {slot:5.1f}s{flag}")
-        placed.append((clip, start))
+        shown_until = min(cue.end, nxt)  # chapter cards disappear a moment before the next caption
+        on_screen = shown_until - cue.start
+        extra = max(0.0, LEAD_IN + d + PAUSE - on_screen)  # time the caption still needs on screen
+        if extra > 0.04:  # hold a frame where this caption/card is still fully visible
+            freezes.append((max(cue.start + 0.2, shown_until - 0.12), extra))
+        note = f"  +{extra:.1f}s hold" if extra > 0.04 else ""
+        print(f"  {i + 1:>3}/{len(cues)}  {cue.start:7.1f}s  speech {d:5.1f}s / on screen {on_screen:5.1f}s{note}")
+        lines.append((clip, d))
 
-    # Build the voice track in Python: silence up to each line's start, then the line's samples.
-    # (No FFmpeg filter scripts, so it works with every FFmpeg version.)
+    # 1) Picture: cut at each hold point and freeze the last frame there (caption stays visible).
+    segs: list[tuple[float, float]] = []  # (source start, new start)
+    if freezes:
+        print(f"\nHolding the picture at {len(freezes)} points (+{sum(e for _, e in freezes):.0f}s) and re-encoding ...")
+        cuts = [0.0] + [t for t, _ in freezes] + ([video_len] if freezes[-1][0] < video_len - 0.01 else [])
+        holds = {t: e for t, e in freezes}
+        parts, new_t = [], 0.0
+        for k in range(len(cuts) - 1):
+            a, b = cuts[k], cuts[k + 1]
+            if b - a < 0.02:
+                continue
+            seg = tmp / f"seg{k:03d}.mp4"
+            vf = f"fps={FPS}" + (f",tpad=stop_mode=clone:stop_duration={holds[b]:.3f}" if b in holds else "")
+            run(["ffmpeg", "-y", "-v", "error", "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", str(args.video), "-an",
+                 "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
+                 "-r", str(FPS), str(seg)])
+            segs.append((a, new_t))
+            new_t += duration(seg)
+            parts.append(seg)
+            print(f"    segment {len(parts):>3}  {a:7.1f}s → {b:7.1f}s{'  + hold ' + format(holds[b], '.1f') + 's' if b in holds else ''}")
+        listing = tmp / "segments.txt"
+        listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), encoding="utf-8")
+        picture = tmp / "picture.mp4"
+        run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(picture)])
+        new_len = duration(picture)
+    else:
+        picture, new_len = args.video, video_len
+        segs = [(0.0, 0.0)]
+    starts = [a for a, _ in segs]
+
+    def remap(t: float) -> float:  # source-video time -> output time
+        k = max(0, bisect.bisect_right(starts, t + 1e-6) - 1)
+        return segs[k][1] + (t - segs[k][0])
+
+    # 2) Voice track, built in Python on the new timeline (works with every FFmpeg version).
     voice = tmp / "voice.wav"
-    total = int(video_len * SR)
+    total = int(new_len * SR)
+    new_starts = [remap(c.start) for c in cues]
     with wave.open(str(voice), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR)
         pos = 0
-        for clip, start in placed:
-            at = int(start * SR)
+        for (clip, _), st in zip(lines, new_starts, strict=True):
+            at = int((st + LEAD_IN) * SR)
             if at > pos:
                 w.writeframes(b"\x00\x00" * (at - pos))
                 pos = at
@@ -204,12 +234,26 @@ async def main() -> None:
             pos += len(pcm) // 2
         if pos < total:
             w.writeframes(b"\x00\x00" * (total - pos))
-    # Mux: picture copied untouched; voice loudness-normalised (broadcast-style -16 LUFS), stereo AAC.
-    run(["ffmpeg", "-y", "-v", "error", "-i", str(args.video), "-i", str(voice), "-map", "0:v:0", "-map", "1:a:0",
-         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ac", "2", "-ar", str(SR), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", f"{video_len:.3f}", str(out)])
+
+    # 3) Mux: picture copied, voice loudness-normalised (broadcast-style -16 LUFS), stereo AAC.
+    run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(voice), "-map", "0:v:0", "-map", "1:a:0",
+         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ac", "2", "-ar", str(SR), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+         "-movflags", "+faststart", "-t", f"{new_len:.3f}", str(out)])
+
+    # 4) Subtitles for the new timeline (each caption until the next one appears).
+    def stamp(x: float) -> str:
+        ms = int(round(x * 1000))
+        return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+    ends = new_starts[1:] + [new_len]
+    out.with_suffix(".srt").write_text("\n".join(
+        f"{n + 1}\n{stamp(a)} --> {stamp(max(a + 0.5, b - 0.05))}\n{c.text}\n"
+        for n, (c, a, b) in enumerate(zip(cues, new_starts, ends, strict=True))), encoding="utf-8")
+
     if not args.keep_temp:
         shutil.rmtree(tmp, ignore_errors=True)
-    print(f"\nDone: {out}  ({math.floor(video_len / 60)}:{int(video_len % 60):02d})")
+    print(f"\nDone: {out}  ({math.floor(new_len / 60)}:{int(new_len % 60):02d}"
+          f"{f', was {math.floor(video_len / 60)}:{int(video_len % 60):02d}' if freezes else ''})")
+    print(f"Subtitles: {out.with_suffix('.srt')}")
 
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@ Use a fresh database, because the script creates a decision and submits it for a
 
 `scripts/voiceover/make_voiceover.py` speaks every SRT line at its caption time with a natural neural voice, and muxes the result into a new MP4 without re-encoding the picture. The default voice is Microsoft's Egyptian Arabic male voice, `ar-EG-ShakirNeural`, through the free `edge-tts` service.
 
-- A line that is too long for its gap is re-synthesised faster (up to 1.35x), so lines never overlap and captions stay in sync.
+- Speech is never sped up. When a line needs more time than its caption is on screen, the picture is held (the caption stays visible) until the line finishes, plus a short pause. Everything after it shifts later, and a matching `-voice.srt` is written.
 - The audio is loudness-normalised to -16 LUFS.
 - An HTTPS proxy in the environment is used automatically.
 
