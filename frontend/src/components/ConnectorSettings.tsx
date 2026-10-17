@@ -66,7 +66,7 @@ export const CONNECTOR_FIELDS: Record<string, Field[]> = {
   sql: [
     { key: "dialect", type: "select", options: ["postgresql", "mssql", "mysql"], required: true },
     { key: "host", placeholder: "erp-db.company.local", required: true },
-    { key: "port", type: "number", placeholder: "5432 / 1433" },
+    { key: "port", type: "number", placeholder: "5432 / 1433 / 3306" },
     { key: "database", placeholder: "erp", required: true },
     { key: "username", placeholder: "fm_readonly", required: true },
     { key: "schema", placeholder: "public" },
