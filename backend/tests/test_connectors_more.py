@@ -1,6 +1,7 @@
 """SAP S/4HANA, generic REST and SQL connectors (mocked HTTP; a real SQLite database for SQL)."""
 
 import base64
+import os
 import sqlite3
 
 import httpx
@@ -139,3 +140,39 @@ def test_sql_rejects_injection_and_reports_missing_settings(ledger_db):
     assert r["ok"] is False and "SQL query failed" in r["message"]
     con = sqlite3.connect(ledger_db)
     assert con.execute("SELECT COUNT(*) FROM gl_lines").fetchone()[0] == 5  # untouched
+
+
+# ---------------------------------------------------------------- SQL Server
+def test_sql_server_driver_is_installed():
+    from sqlalchemy import create_engine
+
+    c = SQLConnector({"dialect": "mssql", "host": "db", "database": "erp", "username": "u"}, {"password": "p"})
+    url = c._url()
+    assert url.drivername == "mssql+pymssql" and url.port == 1433  # default port
+    create_engine(url)  # raises NoSuchModuleError / ModuleNotFoundError if pymssql is missing
+
+
+def test_db_driver_messages_are_readable():
+    from sqlalchemy.exc import OperationalError
+
+    from app.connectors.sql_source import _db_message
+
+    perm = OperationalError("q", {}, Exception(229, b"The SELECT permission was denied.DB-Lib error message 20018"))
+    assert _db_message(perm) == "The SELECT permission was denied."
+    login = OperationalError("q", {}, Exception((18456, b"Login failed for user 'u'.DB-Lib error message 20018")))
+    assert _db_message(login) == "Login failed for user 'u'."
+    down = OperationalError("q", {}, Exception((20009, b"DB-Lib error message 20009, severity 9:\nUnable to connect: x\n")))
+    assert _db_message(down) == "Unable to connect: x"
+
+
+@pytest.mark.skipif(not os.environ.get("FM_TEST_MSSQL_HOST"), reason="set FM_TEST_MSSQL_HOST/PORT/USER/PASSWORD to run")
+def test_sql_server_live():
+    """Live check against a SQL Server whose dbo.v_gl_expenses holds the same rows as the SQLite fixture."""
+    cfg = {"dialect": "mssql", "host": os.environ["FM_TEST_MSSQL_HOST"], "port": int(os.environ.get("FM_TEST_MSSQL_PORT", 1433)),
+           "database": os.environ.get("FM_TEST_MSSQL_DB", "erp"), "username": os.environ["FM_TEST_MSSQL_USER"],
+           "schema": "dbo", "table": "v_gl_expenses", "account_column": "account", "amount_column": "amount",
+           "date_column": "posting_date", "account_mapping": {**MAPPING, "64": "infrastructure"}, **PERIOD}
+    c = SQLConnector(cfg, {"password": os.environ["FM_TEST_MSSQL_PASSWORD"]})
+    assert c.test_connection()["ok"] is True
+    res = c.fetch_cost_profile()
+    assert res.profile["personnel_cost"] == 41 and res.reconciliation["ignored_accounts"] == 1

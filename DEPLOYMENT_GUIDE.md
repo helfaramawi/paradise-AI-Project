@@ -98,7 +98,7 @@ Configure connectors in **Data Connections → Settings** (permission `connector
 | Dynamics 365 Business Central (API v2.0) | `FM_D365_BC_CLIENT_SECRET` | Entra tenant ID, app (client) ID, environment name, company ID, period, account mapping |
 | SAP S/4HANA (OData v2) | `FM_SAP_PASSWORD` | S/4HANA URL, communication user, company code, ledger (default `0L`), period, SAP client (optional), account mapping |
 | Generic REST API (JSON) | `FM_REST_TOKEN` (optional) | endpoint URL, records path, account field, amount field, next-page link path, auth header/scheme, account mapping |
-| SQL database (PostgreSQL; SQL Server/MySQL with driver) | `FM_SQL_PASSWORD` | database type, host, port, database, username, schema, table or view, account/amount/date columns, period, account mapping |
+| SQL database (PostgreSQL, SQL Server; MySQL with driver) | `FM_SQL_PASSWORD` | database type, host, port, database, username, schema, table or view, account/amount/date columns, period, account mapping |
 
 After setting a secret, restart the backend with `docker compose up -d backend`. The settings card shows whether the secret is present, never its value. Then press **Test** and, once it reports success, press **Sync**. A sync that changes figures creates a new dataset version, with those fields tagged `imported`.
 
@@ -117,4 +117,8 @@ The connectors use the client-credentials flow, read `GeneralJournalAccountEntri
 
 **Generic REST API.** Any JSON endpoint that returns ledger lines. Set the records path (for example `data.items`, empty when the response is the list itself), the account and amount fields (dotted paths allowed, such as `gl.code`), and optionally the path to a next-page link (absolute or relative). When `FM_REST_TOKEN` is set, it is sent as `<auth header>: <auth scheme> <token>` (default `Authorization: Bearer …`). Put period filters in the URL query string.
 
-**SQL database.** Point it at a table or, better, a view with one row per ledger line. The connector runs `SELECT account, SUM(amount) … WHERE date BETWEEN … GROUP BY account` built from validated identifiers (no free-text SQL); on PostgreSQL the transaction is read-only. Create a dedicated user with `SELECT` on that view only. SQL Server needs `pymssql` and MySQL needs `pymysql` added to `backend/requirements.txt`.
+**SQL database.** Point it at a table or, better, a view with one row per ledger line. The connector runs `SELECT account, SUM(amount) … WHERE date BETWEEN … GROUP BY account` built from validated identifiers (no free-text SQL); on PostgreSQL the transaction is read-only. Create a dedicated user with `SELECT` on that view only.
+
+- **PostgreSQL** (default port 5432) and **SQL Server** 2017 or later, including Azure SQL (default port 1433), work out of the box. The SQL Server driver is `pymssql`, whose wheel bundles FreeTDS, so no system packages are needed.
+- SQL Server example of a least-privilege login: `CREATE LOGIN fm_readonly WITH PASSWORD='…'; CREATE USER fm_readonly FOR LOGIN fm_readonly; GRANT SELECT ON dbo.v_gl_expenses TO fm_readonly;` Then set the schema to `dbo` in the form.
+- MySQL needs `pymysql` added to `backend/requirements.txt`.

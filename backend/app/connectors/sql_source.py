@@ -5,9 +5,9 @@ The query is built with SQLAlchemy Core from validated identifiers (no free-text
     SELECT <account>, SUM(<amount>) FROM <schema.table> WHERE <date> BETWEEN :from AND :to GROUP BY <account>
 
 On PostgreSQL the transaction is opened READ ONLY. The password comes from
-``FM_SQL_PASSWORD``. PostgreSQL works out of the box; SQL Server (``pymssql``) and MySQL
-(``pymysql``) need their driver added to the backend image. Use a database user with SELECT
-rights on that one view only. Not verified against a customer database in this environment.
+``FM_SQL_PASSWORD``. PostgreSQL (psycopg2) and SQL Server (pymssql, FreeTDS bundled in the
+wheel) work out of the box; MySQL needs ``pymysql`` added to the backend image. Use a database
+user with SELECT rights on that one view only. Verified against PostgreSQL 16 and SQL Server 2022.
 """
 
 from __future__ import annotations
@@ -33,6 +33,21 @@ def _ident(value: Any, what: str) -> str:
     if not IDENT.match(v):
         raise ConnectorError(f"{what} must be a plain identifier (letters, digits, underscore)")
     return v
+
+
+def _db_message(exc: SQLAlchemyError) -> str:
+    """Readable driver message: pymssql returns (code, b"text DB-Lib error ...") tuples."""
+    orig = getattr(exc, "orig", None) or exc
+    flat: list = []
+    for a in getattr(orig, "args", ()) or (orig,):
+        flat.extend(a if isinstance(a, tuple) else (a,))  # login errors nest: ((18456, b"..."),)
+    parts = [a.decode("utf-8", "replace") if isinstance(a, bytes) else str(a) for a in flat]
+    text = next((p for p in parts if not p.isdigit()), str(orig))
+    head = text.split("DB-Lib error")[0].strip()
+    if not head:  # e.g. "DB-Lib error message 20009, severity 9:\nUnable to connect: Adaptive Server is unavailable..."
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.startswith("DB-Lib error")]
+        head = lines[0] if lines else text
+    return head[:300]
 
 
 class SQLConnector(ReadOnlyConnector):
@@ -89,7 +104,7 @@ class SQLConnector(ReadOnlyConnector):
                     conn = conn.execution_options(postgresql_readonly=True)
                 rows = conn.execute(query).all()
         except SQLAlchemyError as exc:
-            raise ConnectorError(f"SQL query failed: {str(exc.orig if hasattr(exc, 'orig') else exc)[:300]}") from exc
+            raise ConnectorError(f"SQL query failed: {_db_message(exc)}") from exc
         finally:
             engine.dispose()
         max_rows = int(self.config.get("max_rows", 500_000))
