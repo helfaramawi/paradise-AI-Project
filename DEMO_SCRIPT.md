@@ -65,4 +65,16 @@ cd frontend
 BASE_URL=http://localhost:5173 OUT_DIR=../docs/video node e2e/video/record-demo-ar.mjs
 ```
 
-Use a fresh database, because the script creates a decision and submits it for approval. To add a voice-over, record or synthesise the SRT lines, then mix the audio in with `ffmpeg -i future-mirror-demo-ar.mp4 -i voice.m4a -map 0:v -map 1:a -c:v copy -shortest out.mp4`.
+Use a fresh database, because the script creates a decision and submits it for approval.
+
+### Adding the Arabic voice-over
+
+`scripts/voiceover/make_voiceover.py` speaks every SRT line at its caption time with a natural neural voice, and muxes the result into a new MP4 without re-encoding the picture. The default voice is Microsoft's Egyptian Arabic male voice, `ar-EG-ShakirNeural`, through the free `edge-tts` service.
+
+- A line that is too long for its gap is re-synthesised faster (up to 1.35x), so lines never overlap and captions stay in sync.
+- The audio is loudness-normalised to -16 LUFS.
+- An HTTPS proxy in the environment is used automatically.
+
+**Windows:** put `future-mirror-demo-ar.mp4` and `.srt` in `docs\video`, then double-click `ops\make-voiceover.bat` (`make-voiceover.bat female` for `ar-EG-SalmaNeural`). It needs Python and FFmpeg (`winget install -e --id Python.Python.3.12`, `winget install -e --id Gyan.FFmpeg`). **macOS/Linux:** `ops/make-voiceover.sh [female]`.
+
+Output: `docs/video/future-mirror-demo-ar-voice.mp4`. For fully offline use, choose `--engine piper --piper-model ar_JO-kareem-medium.onnx`. `--engine dummy` tests the timing without any TTS service.
