@@ -303,11 +303,14 @@ def test_connector_settings_validation_and_d365(client, monkeypatch):
     conns = {c["kind"]: c for c in client.get("/api/v1/connectors", headers=admin).json()}
     fo = conns["d365_fo"]
     assert fo["implementation"] == "adapter" and fo["secret_env"] == ["FM_D365_FO_CLIENT_SECRET"]
-    assert conns["odoo"]["secret_env"] == ["FM_ODOO_API_KEY"] and conns["sap"]["implementation"] == "interface_only"
+    assert conns["odoo"]["secret_env"] == ["FM_ODOO_API_KEY"]
+    assert {conns[k]["implementation"] for k in ("sap", "rest", "sql")} == {"adapter"}
+    assert conns["sap"]["secret_env"] == ["FM_SAP_PASSWORD"] and conns["rest"]["secret_optional"] is True
     url = f"/api/v1/connectors/{fo['id']}"
     for bad in ({"environment_url": "javascript:alert(1)"}, {"date_from": "01/01/2026"},
                 {"date_from": "2026-12-31", "date_to": "2026-01-01"}, {"account_mapping": {"61": "salary-ish"}},
-                {"account_mapping": ["61"]}, {"legal_entity": "eg01' or 1 eq 1"}, {"client_secret": "x"}):
+                {"account_mapping": ["61"]}, {"legal_entity": "eg01' or 1 eq 1"}, {"client_secret": "x"},
+                {"dialect": "oracle"}, {"port": "5432"}, {"strip_leading_zeros": "yes"}):
         assert client.patch(url, json={"config": bad}, headers=admin).status_code == 422, bad
     analyst = login(client, "analyst@futuremirror.demo")
     assert client.patch(url, json={"config": {"tenant_id": "t"}}, headers=analyst).status_code == 403

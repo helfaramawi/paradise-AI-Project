@@ -9,8 +9,8 @@ Everything below was actually executed in this environment. Results are reported
 | Suite | Command | Result |
 |---|---|---|
 | Lint (ruff E/F/W/B) | `cd backend && ruff check app tests` | ✅ all checks passed |
-| Backend unit + integration + security (SQLite) | `cd backend && pytest -q` | ✅ **62 passed** (≈12 s) |
-| Same suite on **PostgreSQL 16** | `FM_DATABASE_URL=postgresql+psycopg2://… pytest -q` | ✅ **62 passed** (≈11 s) |
+| Backend unit + integration + security (SQLite) | `cd backend && pytest -q` | ✅ **69 passed** (≈12 s) |
+| Same suite on **PostgreSQL 16** | `FM_DATABASE_URL=postgresql+psycopg2://… pytest -q` | ✅ **69 passed** (≈12 s) |
 | Frontend type check (strict) + production build | `npm run build` | ✅ no type errors, build OK |
 | End-to-end, dev stack (Vite + uvicorn + PostgreSQL) | `npx playwright test` | ✅ 2/2 passed (8-scene demo ≈ 50 s; tablet layout) |
 | End-to-end, **Docker stack** (nginx + API + PostgreSQL, fresh volume) | `E2E_BASE_URL=http://localhost:8080 npx playwright test` | ✅ 2/2 passed |
@@ -19,7 +19,7 @@ Everything below was actually executed in this environment. Results are reported
 
 One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` column too short for `require_acknowledgement`; SQLite does not enforce lengths). It was fixed and the migration regenerated. Both databases now run in CI.
 
-## 2. Backend tests (62)
+## 2. Backend tests (69)
 
 **Simulation (`test_simulation.py`, 14)**
 - reproducibility (same seed → identical summaries and trajectories);
@@ -59,6 +59,13 @@ One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` col
 - the row limit is enforced;
 - Business Central `generalLedgerEntries` URL, date filter and debit − credit amounts.
 
+**SAP, REST and SQL connectors (`test_connectors_more.py`, 7)**:
+- SAP S/4HANA: OData v2 `A_JournalEntryItemBasic` filter (company code, ledger, posting-date range, `sap-client`), basic auth, `__next` paging, leading-zero stripping of G/L accounts; missing password and HTTP 401 reported;
+- REST: nested records path, dotted account/amount fields, relative next-page links, bearer token only when configured;
+- SQL: a real SQLite ledger: grouped sums within the period, out-of-period and unmapped rows excluded; identifier injection (`table; DROP TABLE`) rejected and the data left untouched; missing host/password and a missing view reported.
+
+The SQL connector was also run **end to end through the UI against a PostgreSQL 16 database** (read-only transaction): Test succeeded, and Sync produced the expected category totals as a new dataset version tagged `imported`.
+
 **API, security and integration (`test_api.py`, 29)**
 - health and readiness; 401 without or with a bad token; bad password; RBAC (viewer → 403); security headers;
 - **tenant isolation** (a second tenant gets 404 and an empty list);
@@ -74,7 +81,7 @@ One defect was found **only by running against PostgreSQL** (a `VARCHAR(20)` col
 - reality feedback loop (synthetic actuals labelled, delay above P90 → skill-match diagnostic, manual outcome, candidate model, analyst promotion 403, admin promotion 200);
 - PDF and Excel in EN and AR;
 - dataset versioning (provenance → user_input, DQ-002 cleared) and CSV import reconciliation (unmapped category reported, bad file 422);
-- connector honesty (SAP interface-only, Odoo not verified, synthetic ERP reconciles to 0, secret keys rejected);
+- connector honesty (unconfigured adapters report missing settings, Odoo not verified, synthetic ERP reconciles to 0, secret keys rejected);
 - connector settings validation (bad URL, bad date, reversed period, unknown category, OData-injection characters and secret keys all rejected with 422; analyst gets 403; secret presence is reported without ever returning the value);
 - audit chain valid; persistence across a new application instance; dashboard.
 
@@ -140,6 +147,6 @@ Authentication required · invalid token · wrong password · login rate limitin
 ## 7. Known gaps in testing
 
 - The LLM providers (Anthropic, OpenAI, Ollama) are implemented but **not exercised against live endpoints** (no credentials in this environment). The narration path is covered only by its failure handling (a warning, with the structured findings kept).
-- The Odoo and Dynamics 365 adapters have not been run against real servers (the D365 adapters are covered by mocked HTTP tests). n8n live delivery has not been run against a real n8n instance (the dry-run path is tested).
+- The Odoo, Dynamics 365, SAP and REST adapters have not been run against real customer systems (D365/SAP/REST are covered by mocked HTTP tests). SQL Server and MySQL drivers are not in the image. n8n live delivery has not been run against a real n8n instance (the dry-run path is tested).
 - No frontend unit tests (components are covered through E2E).
 - Visual review covered the screens in the screenshot set; there are no formal accessibility audits (axe) or cross-browser runs (Chromium only).

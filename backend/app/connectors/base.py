@@ -8,6 +8,7 @@ interface: the MVP is read-only with respect to external systems (policy GOV-003
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import Any
 
 from pydantic import BaseModel
@@ -52,6 +53,7 @@ class ReadOnlyConnector(ABC):
     kind: str = "abstract"
     implementation: str = "interface_only"  # working | adapter | interface_only
     secret_env: tuple[str, ...] = ()  # FM_<KIND>_<NAME> environment variables holding secrets
+    secret_optional: bool = False  # True when the connector also works without its secret
 
     def __init__(self, config: dict[str, Any] | None = None, secrets: dict[str, str] | None = None):
         self.config = config or {}
@@ -91,3 +93,31 @@ def reconcile(category_totals: dict[str, float], base: Baseline, extra: dict[str
         "status": "ok" if not unmapped else "needs_mapping",
     }
     return profile, rec
+
+def bucket_by_prefix(lines: Iterable[tuple[str, float]], mapping: dict[str, str]) -> tuple[dict[str, float], dict[str, float]]:
+    """Sum amounts per category using the longest matching account prefix; return (totals, ignored)."""
+    if not mapping:
+        raise ConnectorError("account_mapping is required (account code prefix -> cost category)")
+    prefixes = sorted(mapping, key=len, reverse=True)
+    totals: dict[str, float] = {}
+    ignored: dict[str, float] = {}
+    for code, amount in lines:
+        code = (code or "").strip()
+        p = next((p for p in prefixes if code.startswith(p)), None)
+        if p is None:
+            ignored[code] = ignored.get(code, 0.0) + amount
+        else:
+            totals[mapping[p]] = totals.get(mapping[p], 0.0) + amount
+    return totals, ignored
+
+
+def summarise_ledger(source: str, lines: Iterable[tuple[str, float]], config: dict[str, Any], base: Baseline | None,
+                     rows_read: int) -> ConnectorResult:
+    """Ledger lines (account code, amount in source currency) -> mapped, reconciled cost profile."""
+    divisor = float(config.get("amount_divisor", 1e6))  # source currency units -> EGP millions
+    scaled = [(code, amt / divisor) for code, amt in lines]
+    totals, ignored = bucket_by_prefix(scaled, config.get("account_mapping") or {})
+    profile, rec = reconcile(totals, base or Baseline())
+    rec.update({"ignored_accounts": len(ignored), "ignored_total": round(sum(ignored.values()), 4),
+                "period": [config.get("date_from"), config.get("date_to")]})
+    return ConnectorResult(profile=profile, reconciliation=rec, rows_read=rows_read, source=source, verified_live=True)

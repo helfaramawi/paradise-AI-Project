@@ -29,7 +29,7 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 | Synthetic ERP connector, CSV/Excel import with reconciliation | ✅ working |
 | Odoo XML-RPC adapter | ⚠️ implemented, **not verified** against a live Odoo instance |
 | Dynamics 365 F&O and Business Central OData connectors, with a settings form | ⚠️ implemented and tested against mocked endpoints, **not verified** against a live tenant |
-| SAP / REST / SQL connectors | ⚠️ interface definitions only |
+| SAP S/4HANA (OData), generic REST API and SQL database connectors, with settings forms | ⚠️ implemented; SQL verified end to end against a PostgreSQL database, SAP/REST tested against mocked endpoints |
 | n8n automation (dry-run, idempotency, approval gates, retries) | ✅ dry-run working; live delivery needs an n8n URL (`FM_N8N_BASE_URL`) |
 | Docker Compose (PostgreSQL, API, nginx reverse proxy, optional n8n) | ✅ built and verified |
 
@@ -131,7 +131,7 @@ backend/            FastAPI service
   app/agents/       domain agents, Red Team court, collision detector, recommendation, LangGraph orchestrator, LLM providers
   app/governance/   declarative policy engine + default policies
   app/services/     pipeline, events (SSE), audit chain, dossier, feedback loop, reports
-  app/connectors/   synthetic ERP, CSV/Excel import, Odoo adapter, D365/SAP interfaces
+  app/connectors/   synthetic ERP, CSV/Excel import, Odoo, Dynamics 365, SAP, REST and SQL adapters
   app/automation/   n8n client with dry-run, idempotency and approval gates
   app/api/          REST routers
   alembic/          database migrations
