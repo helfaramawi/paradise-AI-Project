@@ -77,4 +77,6 @@ Use a fresh database, because the script creates a decision and submits it for a
 
 **Windows:** put `future-mirror-demo-ar.mp4` and `.srt` in `docs\video`, then double-click `ops\make-voiceover.bat` (`make-voiceover.bat female` for `ar-EG-SalmaNeural`). It needs Python and FFmpeg (`winget install -e --id Python.Python.3.12`, `winget install -e --id Gyan.FFmpeg`). **macOS/Linux:** `ops/make-voiceover.sh [female]`.
 
+**Background music (optional):** save a track as `docs/video/music.mp3` (or `.m4a`/`.wav`), and the launchers pick it up automatically (or pass `--music file`). It is normalised, kept 18 dB below the voice (`--music-volume -24` for quieter, `-14` for louder), looped, faded in and out, and ducked about 12 dB more while the narrator speaks. Use music you have the rights to: commercial tracks will be blocked or muted by Content ID on public platforms, so use royalty-free music, such as the YouTube Audio Library.
+
 Output: `docs/video/future-mirror-demo-ar-voice.mp4`. For fully offline use, choose `--engine piper --piper-model ar_JO-kareem-medium.onnx`. `--engine dummy` tests the timing without any TTS service.

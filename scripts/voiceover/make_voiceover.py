@@ -139,6 +139,8 @@ async def main() -> None:
     ap.add_argument("--voice", default="ar-EG-ShakirNeural")
     ap.add_argument("--rate", type=int, default=0, help="speaking-rate change in %% (edge only), e.g. -5 slower, 8 faster")
     ap.add_argument("--piper-model", help="path to a piper .onnx voice (engine piper)")
+    ap.add_argument("--music", type=Path, help="optional background music file (mp3/m4a/wav), looped and kept low")
+    ap.add_argument("--music-volume", type=float, default=-18.0, help="music level in dB below the voice (default -18; e.g. -24 quieter, -14 louder)")
     ap.add_argument("--keep-temp", action="store_true")
     args = ap.parse_args()
 
@@ -236,9 +238,24 @@ async def main() -> None:
             w.writeframes(b"\x00\x00" * (total - pos))
 
     # 3) Mux: picture copied, voice loudness-normalised (broadcast-style -16 LUFS), stereo AAC.
-    run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(voice), "-map", "0:v:0", "-map", "1:a:0",
-         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ac", "2", "-ar", str(SR), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-         "-movflags", "+faststart", "-t", f"{new_len:.3f}", str(out)])
+    #    Optional music: normalised to the voice's loudness, then lowered (default 18 dB below), looped,
+    #    faded in/out, and ducked a further ~8 dB while the voice speaks.
+    common = ["-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-movflags", "+faststart", "-t", f"{new_len:.3f}", str(out)]
+    if args.music:
+        if not args.music.exists():
+            raise SystemExit(f"Music file not found: {args.music}")
+        fade_out = max(0.0, new_len - 5)
+        graph = (f"[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,aformat=sample_rates={SR}:channel_layouts=stereo,asplit=2[v][key];"
+                 f"[2:a]aformat=sample_rates={SR}:channel_layouts=stereo,loudnorm=I=-16:TP=-2,volume={args.music_volume:.1f}dB,"
+                 f"afade=t=in:d=3,afade=t=out:st={fade_out:.2f}:d=5[m];"
+                 "[m][key]sidechaincompress=threshold=0.03:ratio=6:attack=30:release=600[duck];"
+                 "[v][duck]amix=inputs=2:normalize=0:duration=first[a]")
+        run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(voice), "-stream_loop", "-1", "-i", str(args.music),
+             "-filter_complex", graph, "-map", "0:v:0", "-map", "[a]", *common])
+        print(f"Background music: {args.music.name}, {abs(args.music_volume):.0f} dB below the voice, ducked while it speaks")
+    else:
+        run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(voice), "-map", "0:v:0", "-map", "1:a:0",
+             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ac", "2", *common])
 
     # 4) Subtitles for the new timeline (each caption until the next one appears).
     def stamp(x: float) -> str:

@@ -2,6 +2,7 @@
 # Adds a natural Arabic voice-over to the demo video (Microsoft neural voices, free).
 #   ops/make-voiceover.sh [male|female|<edge voice name>]
 # Put future-mirror-demo-ar.mp4 and future-mirror-demo-ar.srt in docs/video first.
+# Optional background music: docs/video/music.mp3 (or .m4a/.wav), kept low and ducked under the voice.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VOICE=ar-EG-ShakirNeural
@@ -11,6 +12,8 @@ for f in docs/video/future-mirror-demo-ar.mp4 docs/video/future-mirror-demo-ar.s
   [ -f "$f" ] || { echo "Missing $f: copy the demo video and its .srt into docs/video"; exit 1; }
 done
 python3 -m pip install --quiet --upgrade edge-tts
+MUSIC=()
+for m in docs/video/music.mp3 docs/video/music.m4a docs/video/music.wav; do [ -f "$m" ] && MUSIC=(--music "$m"); done
 python3 scripts/voiceover/make_voiceover.py --video docs/video/future-mirror-demo-ar.mp4 \
-  --srt docs/video/future-mirror-demo-ar.srt --voice "$VOICE"
+  --srt docs/video/future-mirror-demo-ar.srt --voice "$VOICE" "${MUSIC[@]}"
 echo "Done: docs/video/future-mirror-demo-ar-voice.mp4"
