@@ -47,3 +47,22 @@ The whole sequence is automated in `frontend/e2e/demo.spec.ts`, which produced t
 Click **العربية**. The whole cockpit mirrors to RTL with Arabic numerals, and the bilingual agent findings switch language.
 
 > "Future Mirror AI didn't tell us to cut 20%. It showed us that 20% isn't realistic without breaking a protected constraint, quantified what *is* achievable, exposed the assumption everyone was making, and refused to let any agent act without the right humans signing off."
+
+---
+
+## Recording the Arabic demo video
+
+`frontend/e2e/video/record-demo-ar.mjs` records a 12–15 minute Arabic product video from the **real running app**. It covers 16 chapters: sign-in, Command Center, Intake, Live Execution, Agent Court, Three Futures, Time Machine, Financial/Risk/Lab, approvals with separation of duties, Actual vs Predicted, history and reports, Data Connections, Automation, Governance, Administration, and language/theme.
+
+- The browser renders the Arabic captions, chapter cards, a visible cursor and a progress bar, so Arabic shaping and right-to-left layout are exact.
+- Frames come from Chrome's screencast and are encoded live to 1080p H.264 by ffmpeg, at a constant 25 fps.
+- Outputs: `future-mirror-demo-ar.mp4`; `future-mirror-demo-ar.srt` (timed narration, usable as subtitles or as a voice-over script); `chapters.txt` (YouTube-style chapter list).
+
+```bash
+# 1. Start a fresh demo stack (any of: docker compose on :8080, or uvicorn + vite on :5173)
+# 2. Record (needs ffmpeg and the Playwright Chromium)
+cd frontend
+BASE_URL=http://localhost:5173 OUT_DIR=../docs/video node e2e/video/record-demo-ar.mjs
+```
+
+Use a fresh database, because the script creates a decision and submits it for approval. To add a voice-over, record or synthesise the SRT lines, then mix the audio in with `ffmpeg -i future-mirror-demo-ar.mp4 -i voice.m4a -map 0:v -map 1:a -c:v copy -shortest out.mp4`.
