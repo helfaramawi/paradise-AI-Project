@@ -30,7 +30,7 @@
 - **Run durability:** the LangGraph checkpointer is in memory. A backend restart during a run marks it `failed`; the run does not resume.
 - **Single decision category** (operating cost optimisation) and fixed A/B/C lever mixes; custom mixes only in the Simulation Lab.
 - **Model:** uncalibrated priors; independent parameters (no correlations); linear ramps; proxy revenue effects; the DES uses mean shortfall.
-- **Connectors:** Odoo and Dynamics 365 adapters are not verified against live systems (the D365 adapters are tested against mocked Entra ID / OData responses). SAP/REST/SQL are interfaces only. Read-only by design.
+- **Connectors:** Odoo and Dynamics 365 adapters are not verified against live systems (the D365 adapters are tested against mocked Entra ID / OData responses). SAP and REST adapters are tested against mocked endpoints; the SQL adapter was run end to end against a PostgreSQL database (SQL Server/MySQL need their driver added to the image). Read-only by design.
 - **Automation:** live n8n delivery requires configuration and is untested here; schedules are metadata (no scheduler runs them yet).
 - **Auth:** local accounts + JWT. No SSO/MFA; tokens are stored in `localStorage`.
 - **Scale:** a single uvicorn worker in compose; concurrent heavy simulations are CPU-bound.
@@ -53,7 +53,7 @@ None open. Fixed during verification:
 1. Durable execution: queue (Redis + RQ/Celery) + `langgraph-checkpoint-postgres` for resumable runs.
 2. Validate the LLM narration against Anthropic / OpenAI / Ollama; add LLM-generated *hypotheses* to the Red Team (clearly labelled), with evaluation sets.
 3. Scheduler for automation workflows (scheduled analysis, KPI monitoring) and verified n8n delivery with signed webhooks.
-4. Verify the Odoo and Dynamics 365 connectors against test instances; implement the SAP adapter.
+4. Verify the Odoo, Dynamics 365, SAP and REST connectors against customer test instances; add SQL Server/MySQL drivers to the image if needed.
 5. Agent re-evaluation of what-if configurations ("promote what-if to analysis").
 6. Parameter correlation (Gaussian copula) and Bayesian updating from observed outcomes; backtesting dashboard for candidate models.
 7. SSO (OIDC/SAML), MFA, httpOnly-cookie sessions, per-tenant encryption keys.

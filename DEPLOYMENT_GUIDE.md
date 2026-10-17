@@ -53,7 +53,7 @@ The CA is passed as a BuildKit secret and is **not** stored in the images. The i
 | `FM_AGENT_TIMEOUT_SECONDS` / `FM_PIPELINE_TIMEOUT_SECONDS` | 20 / 180 | execution limits |
 | `FM_N8N_BASE_URL` / `FM_N8N_API_KEY` | — | enables live webhook delivery |
 | `FM_EXTERNAL_ACTIONS_ENABLED` | **false** | keep false in the MVP (GOV-003 / GOV-014) |
-| `FM_ODOO_API_KEY`, `FM_D365_FO_CLIENT_SECRET`, `FM_D365_BC_CLIENT_SECRET` | — | connector secrets (see §8) |
+| `FM_ODOO_API_KEY`, `FM_D365_FO_CLIENT_SECRET`, `FM_D365_BC_CLIENT_SECRET`, `FM_SAP_PASSWORD`, `FM_REST_TOKEN`, `FM_SQL_PASSWORD` | — | connector secrets (see §8) |
 | `FM_SKIP_STARTUP_MIGRATIONS` | — | set `1` to run migrations as a separate job |
 
 ## 4. Production hardening checklist
@@ -96,6 +96,9 @@ Configure connectors in **Data Connections → Settings** (permission `connector
 | Odoo (XML-RPC) | `FM_ODOO_API_KEY` | URL, database, username, period, account mapping |
 | Dynamics 365 Finance & Operations (OData) | `FM_D365_FO_CLIENT_SECRET` | environment URL, Entra tenant ID, app (client) ID, legal entity, period, account mapping; optional entity/field overrides |
 | Dynamics 365 Business Central (API v2.0) | `FM_D365_BC_CLIENT_SECRET` | Entra tenant ID, app (client) ID, environment name, company ID, period, account mapping |
+| SAP S/4HANA (OData v2) | `FM_SAP_PASSWORD` | S/4HANA URL, communication user, company code, ledger (default `0L`), period, SAP client (optional), account mapping |
+| Generic REST API (JSON) | `FM_REST_TOKEN` (optional) | endpoint URL, records path, account field, amount field, next-page link path, auth header/scheme, account mapping |
+| SQL database (PostgreSQL; SQL Server/MySQL with driver) | `FM_SQL_PASSWORD` | database type, host, port, database, username, schema, table or view, account/amount/date columns, period, account mapping |
 
 After setting a secret, restart the backend with `docker compose up -d backend`. The settings card shows whether the secret is present, never its value. Then press **Test** and, once it reports success, press **Sync**. A sync that changes figures creates a new dataset version, with those fields tagged `imported`.
 
@@ -109,3 +112,9 @@ After setting a secret, restart the backend with `docker compose up -d backend`.
 4. Allow outbound HTTPS from the backend to `login.microsoftonline.com` and to the F&O environment or `api.businesscentral.dynamics.com`.
 
 The connectors use the client-credentials flow, read `GeneralJournalAccountEntries` (F&O) or `generalLedgerEntries` (BC) for the configured period, follow `@odata.nextLink` paging and stop at `max_rows` (default 500,000). They never write to the ERP. **Status: implemented and tested against mocked Entra ID / OData responses; not yet verified against a live tenant.**
+
+**SAP S/4HANA.** Create a communication arrangement for scenario `SAP_COM_0002` (Finance – Posting Integration) or any arrangement that exposes `API_JOURNALENTRYITEMBASIC_SRV`, with a communication user that has read access. The connector reads `A_JournalEntryItemBasic` (`GLAccount`, `AmountInCompanyCodeCurrency`) filtered by company code, ledger and posting date. Leading zeros are stripped from G/L accounts (`0061000000` → `61000000`), so map prefixes such as `61`.
+
+**Generic REST API.** Any JSON endpoint that returns ledger lines. Set the records path (for example `data.items`, empty when the response is the list itself), the account and amount fields (dotted paths allowed, such as `gl.code`), and optionally the path to a next-page link (absolute or relative). When `FM_REST_TOKEN` is set, it is sent as `<auth header>: <auth scheme> <token>` (default `Authorization: Bearer …`). Put period filters in the URL query string.
+
+**SQL database.** Point it at a table or, better, a view with one row per ledger line. The connector runs `SELECT account, SUM(amount) … WHERE date BETWEEN … GROUP BY account` built from validated identifiers (no free-text SQL); on PostgreSQL the transaction is read-only. Create a dedicated user with `SELECT` on that view only. SQL Server needs `pymssql` and MySQL needs `pymysql` added to `backend/requirements.txt`.

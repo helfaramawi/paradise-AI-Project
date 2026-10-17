@@ -16,33 +16,17 @@ frequently expose customised entities. Not verified against a live tenant in thi
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
 
 import httpx
 
 from ..simulation.assumptions import Baseline
-from .base import ConnectorError, ConnectorResult, ReadOnlyConnector, reconcile
+from .base import ConnectorError, ConnectorResult, ReadOnlyConnector, bucket_by_prefix, summarise_ledger  # noqa: F401
 
 DEFAULT_AUTHORITY = "https://login.microsoftonline.com"
 DEFAULT_MAX_ROWS = 500_000
 
 
-def bucket_by_prefix(lines: Iterable[tuple[str, float]], mapping: dict[str, str]) -> tuple[dict[str, float], dict[str, float]]:
-    """Sum amounts per category using the longest matching account prefix; return (totals, ignored)."""
-    if not mapping:
-        raise ConnectorError("account_mapping is required (account code prefix -> cost category)")
-    prefixes = sorted(mapping, key=len, reverse=True)
-    totals: dict[str, float] = {}
-    ignored: dict[str, float] = {}
-    for code, amount in lines:
-        code = (code or "").strip()
-        p = next((p for p in prefixes if code.startswith(p)), None)
-        if p is None:
-            ignored[code] = ignored.get(code, 0.0) + amount
-        else:
-            totals[mapping[p]] = totals.get(mapping[p], 0.0) + amount
-    return totals, ignored
 
 
 class _EntraODataConnector(ReadOnlyConnector):
@@ -128,14 +112,7 @@ class _EntraODataConnector(ReadOnlyConnector):
                 rows = self._read_all(client, self._token(client))
         except httpx.HTTPError as exc:
             raise ConnectorError(f"{self.kind} request failed: {exc}") from exc
-        divisor = float(self.config.get("amount_divisor", 1e6))  # source currency units -> EGP millions
-        lines = [(code, amt / divisor) for code, amt in (self._line(r) for r in rows)]
-        totals, ignored = bucket_by_prefix(lines, self.config.get("account_mapping") or {})
-        profile, rec = reconcile(totals, base or Baseline())
-        rec.update({"ignored_accounts": len(ignored), "ignored_total": round(sum(ignored.values()), 4),
-                    "period": [self.config.get("date_from"), self.config.get("date_to")]})
-        return ConnectorResult(profile=profile, reconciliation=rec, rows_read=len(rows), source=self.kind,
-                               verified_live=True)
+        return summarise_ledger(self.kind, [self._line(r) for r in rows], self.config, base, len(rows))
 
 
 class D365FinanceOperationsConnector(_EntraODataConnector):

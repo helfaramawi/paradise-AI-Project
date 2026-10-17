@@ -101,9 +101,12 @@ def seed_tenant(db: Session, slug: str = "nile-engineering", name: str = "Nile E
          {"environment_url": "", "tenant_id": "", "client_id": "", "legal_entity": ""}),
         ("d365_bc", "Microsoft Dynamics 365 Business Central (API v2.0 adapter)", "not_configured", "adapter",
          {"tenant_id": "", "client_id": "", "environment": "production", "company_id": ""}),
-        ("sap", "SAP S/4HANA (OData)", "not_configured", "interface_only", {}),
-        ("rest", "Generic REST API", "not_configured", "interface_only", {}),
-        ("sql", "SQL source via integration service", "not_configured", "interface_only", {}),
+        ("sap", "SAP S/4HANA (OData)", "not_configured", "adapter",
+         {"base_url": "", "username": "", "company_code": "", "ledger": "0L"}),
+        ("rest", "Generic REST API", "not_configured", "adapter",
+         {"url": "", "records_path": "", "account_field": "account", "amount_field": "amount"}),
+        ("sql", "SQL database (read-only view)", "not_configured", "adapter",
+         {"dialect": "postgresql", "host": "", "database": "", "table": ""}),
     ]
     for kind, nm, status, impl, cfg in connections:
         db.add(DataConnection(tenant_id=tenant.id, kind=kind, name=nm, status=status, implementation=impl, config=cfg))

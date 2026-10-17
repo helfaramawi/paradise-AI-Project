@@ -30,7 +30,7 @@ CEO (decides; approves above EGP 5M), CFO (financial approval), COO (delivery si
 | R14 | Reality Feedback Loop: predicted vs actual, forecast error, calibration, explanations; no automatic production model changes |
 | R15 | Bilingual EN/AR across UI, findings and reports; RTL; localised numbers |
 | R16 | Executive reports (PDF + Excel) distinguishing facts, estimates, assumptions and recommendations |
-| R17 | Connectors: working synthetic ERP, CSV/Excel import, Odoo and D365 adapters, SAP interface; mapping, validation and reconciliation; read-only |
+| R17 | Connectors: working synthetic ERP, CSV/Excel import, Odoo, Dynamics 365, SAP S/4HANA, REST and SQL adapters; mapping, validation and reconciliation; read-only |
 | R18 | Automation via n8n: dry-run, approval gates, idempotency, retries, audit; no autonomous consequential execution |
 | R19 | Persistence with migrations, referential integrity and traceability to data and model versions |
 | R20 | Authentication, organisation/tenant workspace |
@@ -58,7 +58,7 @@ CEO (decides; approves above EGP 5M), CFO (financial approval), COO (delivery si
 | R14 | `services/feedback.py`, `/outcomes`, `/calibration-proposal`, `/models/{id}/promote`, `pages/Outcomes.tsx` | `test_reality_feedback_loop_and_model_governance` |
 | R15 | `i18n/dict.ts` (≈350 keys × 2), `lib/app.tsx` (dir, `Intl` ar-EG), bilingual findings, `reports.py` Arabic shaping | `test_findings_are_bilingual_and_evidenced`, `test_reports_pdf_and_excel_both_languages`, E2E Arabic RTL screenshots |
 | R16 | `services/reports.py` | `test_reports_pdf_and_excel_both_languages` |
-| R17 | `connectors/*` (incl. `d365.py`), `api/data.py`, `pages/DataConnections.tsx`, `components/ConnectorSettings.tsx` | `test_connectors_honest_status`, `test_connector_settings_validation_and_d365`, `tests/test_connectors_d365.py`, `test_dataset_versioning_and_import` |
+| R17 | `connectors/*` (`d365.py`, `sap_rest.py`, `sql_source.py`), `api/data.py`, `pages/DataConnections.tsx`, `components/ConnectorSettings.tsx` | `test_connectors_honest_status`, `test_connector_settings_validation_and_d365`, `tests/test_connectors_d365.py`, `tests/test_connectors_more.py`, `test_dataset_versioning_and_import` |
 | R18 | `automation/n8n.py`, `api/operations.py`, `automation/n8n/*.json`, `pages/Automation.tsx` | `test_automation_dry_run_idempotent_and_live_blocked`, `test_automation_live_consequential_blocked` |
 | R19 | `models.py` (35 tables), `alembic/versions/0001_initial_schema.py` | whole suite on SQLite **and** PostgreSQL; `test_persistence_survives_restart`; Docker restart check |
 | R20 | `api/auth.py`, `security.py`, tenants/organisations | `test_requires_auth`, `test_tenant_isolation` |

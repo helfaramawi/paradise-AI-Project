@@ -3,8 +3,7 @@
 * Odoo: implemented XML-RPC adapter (read-only). NOT verified against a live Odoo instance
   in this environment - status remains ``adapter`` until a successful test_connection.
 * Dynamics 365 F&O / Business Central: OData adapters in ``d365.py`` (status ``adapter``).
-* SAP, generic REST and SQL: interface definitions with the documented entity sets they will
-  read. They raise ``ConnectorError`` until implemented.
+* SAP S/4HANA and generic REST: HTTP adapters in ``sap_rest.py``; SQL: ``sql_source.py``.
 """
 
 from __future__ import annotations
@@ -15,6 +14,8 @@ from typing import Any
 from ..simulation.assumptions import Baseline
 from .base import ConnectorError, ConnectorResult, ReadOnlyConnector, reconcile
 from .d365 import D365BusinessCentralConnector, D365FinanceOperationsConnector
+from .sap_rest import RestConnector, SAPConnector
+from .sql_source import SQLConnector
 from .synthetic import SyntheticERPConnector
 
 
@@ -59,33 +60,6 @@ class OdooConnector(ReadOnlyConnector):
         profile, rec = reconcile(totals, base or Baseline())
         return ConnectorResult(profile=profile, reconciliation=rec, rows_read=len(groups), source="odoo",
                                verified_live=True)
-
-
-class _InterfaceOnly(ReadOnlyConnector):
-    entity_sets: list[str] = []
-
-    def test_connection(self) -> dict[str, Any]:
-        return {"ok": False, "verified_live": False,
-                "message": f"{self.kind} adapter is defined as an interface only in this release. "
-                           f"Planned entity sets: {', '.join(self.entity_sets)}"}
-
-    def fetch_cost_profile(self, base: Baseline | None = None) -> ConnectorResult:
-        raise ConnectorError(f"{self.kind} connector not implemented in this release")
-
-
-class SAPConnector(_InterfaceOnly):
-    kind = "sap"
-    entity_sets = ["API_JOURNALENTRYITEMBASIC_SRV", "API_GLACCOUNTINCHARTOFACCOUNTS_SRV", "API_ENTERPRISE_PROJECT_SRV"]
-
-
-class RestConnector(_InterfaceOnly):
-    kind = "rest"
-    entity_sets = ["configurable JSON endpoint"]
-
-
-class SQLConnector(_InterfaceOnly):
-    kind = "sql"
-    entity_sets = ["read-only view via integration service"]
 
 
 REGISTRY: dict[str, type[ReadOnlyConnector]] = {

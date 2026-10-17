@@ -129,7 +129,9 @@ def _impl(c: DataConnection) -> str:
 def _conn_out(c: DataConnection) -> dict[str, Any]:
     """Connection row plus the code-defined implementation level and secret presence (never values)."""
     env = _secret_vars(c.kind)
+    cls = REGISTRY.get(c.kind)
     return {**row(c), "implementation": _impl(c), "secret_env": sorted(env.values()),
+            "secret_optional": bool(cls and cls.secret_optional),
             "secret_configured": bool(env) and all(os.environ.get(v) for v in env.values())}
 
 
@@ -144,7 +146,7 @@ class ConnIn(BaseModel):
     config: dict[str, Any]
 
 
-_URL_KEYS = {"url", "environment_url", "api_base", "authority"}
+_URL_KEYS = {"url", "base_url", "environment_url", "api_base", "authority"}
 _TEXT = re.compile(r"^[\w.@:/\-{}() ]{0,300}$")
 
 
@@ -167,7 +169,13 @@ def _validate_config(cfg: dict[str, Any]) -> None:
         elif k in _URL_KEYS:
             if not re.match(r"^https?://[^\s'\"]+$", str(v)):
                 raise HTTPException(422, f"{k} must be an http(s) URL")
-        elif k in ("max_rows", "amount_divisor", "timeout_s"):
+        elif k == "dialect":
+            if v not in ("postgresql", "mssql", "mysql"):
+                raise HTTPException(422, "dialect must be postgresql, mssql or mysql")
+        elif k == "strip_leading_zeros":
+            if not isinstance(v, bool):
+                raise HTTPException(422, "strip_leading_zeros must be true or false")
+        elif k in ("max_rows", "amount_divisor", "timeout_s", "port"):
             if not isinstance(v, int | float) or v <= 0:
                 raise HTTPException(422, f"{k} must be a positive number")
         elif isinstance(v, str) and not _TEXT.match(v):
