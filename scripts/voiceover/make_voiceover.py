@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import math
 import os
 import re
@@ -28,12 +29,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 
 GAP = 0.15        # seconds of silence kept before the next caption
 LEAD_IN = 0.12    # small delay after a caption appears before the voice starts
 MAX_TEMPO = 1.35  # never speed speech up beyond this
+SR = 48000        # sample rate of the voice track
 
 
 @dataclass
@@ -105,6 +108,17 @@ def synth_dummy(text: str, out: Path, speed: float) -> None:
 
 
 async def synth(args, text: str, out: Path, speed: float) -> None:
+    """Synthesise into `out`, reusing a cached clip when the same line was made before."""
+    key = hashlib.sha1(f"{args.engine}|{args.voice}|{args.rate}|{args.piper_model}|{speed:.3f}|{text}".encode()).hexdigest()
+    cached = args.cache / f"{key}{out.suffix}"
+    if cached.exists() and cached.stat().st_size > 0:
+        shutil.copyfile(cached, out)
+        return
+    await _synth(args, text, out, speed)
+    shutil.copyfile(out, cached)
+
+
+async def _synth(args, text: str, out: Path, speed: float) -> None:
     if args.engine == "edge":
         await synth_edge(text, out, args.voice, round((speed - 1) * 100) + args.rate)
     elif args.engine == "piper":
@@ -143,6 +157,8 @@ async def main() -> None:
     video_len = duration(args.video)
     out = args.out or args.video.with_name(args.video.stem + "-voice.mp4")
     tmp = Path(tempfile.mkdtemp(prefix="fm-voice-"))
+    args.cache = out.parent / ".voice-cache"  # re-runs reuse lines already synthesised
+    args.cache.mkdir(parents=True, exist_ok=True)
     ext = "mp3" if args.engine == "edge" else "wav"
     placed: list[tuple[Path, float]] = []
     print(f"{len(cues)} lines · engine {args.engine}{' · voice ' + args.voice if args.engine == 'edge' else ''}")
@@ -168,23 +184,29 @@ async def main() -> None:
         print(f"  {i + 1:>3}/{len(cues)}  {cue.start:7.1f}s  {d:5.1f}s / {slot:5.1f}s{flag}")
         placed.append((clip, start))
 
-    # Mix: each line delayed to its start time, summed, loudness-normalised (broadcast-style -16 LUFS).
+    # Build the voice track in Python: silence up to each line's start, then the line's samples.
+    # (No FFmpeg filter scripts, so it works with every FFmpeg version.)
     voice = tmp / "voice.wav"
-    inputs: list[str] = []
-    chains = []
-    for k, (clip, start) in enumerate(placed):
-        inputs += ["-i", str(clip)]
-        ms = int(round(start * 1000))
-        chains.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=mono,adelay={ms}:all=1[a{k}]")
-    mix = "".join(f"[a{k}]" for k in range(len(placed)))
-    graph = ";".join(chains) + f";{mix}amix=inputs={len(placed)}:normalize=0:dropout_transition=0," \
-        f"apad=whole_dur={video_len:.3f},atrim=0:{video_len:.3f},loudnorm=I=-16:TP=-1.5:LRA=11[out]"
-    script = tmp / "graph.txt"
-    script.write_text(graph, encoding="utf-8")
-    run(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex_script", str(script), "-map", "[out]",
-         "-ac", "2", "-ar", "48000", str(voice)])
+    total = int(video_len * SR)
+    with wave.open(str(voice), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        pos = 0
+        for clip, start in placed:
+            at = int(start * SR)
+            if at > pos:
+                w.writeframes(b"\x00\x00" * (at - pos))
+                pos = at
+            pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(clip), "-f", "s16le", "-ac", "1", "-ar", str(SR), "-"],
+                                 capture_output=True, check=True).stdout
+            w.writeframes(pcm)
+            pos += len(pcm) // 2
+        if pos < total:
+            w.writeframes(b"\x00\x00" * (total - pos))
+    # Mux: picture copied untouched; voice loudness-normalised (broadcast-style -16 LUFS), stereo AAC.
     run(["ffmpeg", "-y", "-v", "error", "-i", str(args.video), "-i", str(voice), "-map", "0:v:0", "-map", "1:a:0",
-         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", f"{video_len:.3f}", str(out)])
+         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ac", "2", "-ar", str(SR), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", f"{video_len:.3f}", str(out)])
     if not args.keep_temp:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"\nDone: {out}  ({math.floor(video_len / 60)}:{int(video_len % 60):02d})")
