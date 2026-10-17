@@ -14,3 +14,4 @@ playwright-report/
 *.log
 backups/
 docs/video/*.mp4
+docs/video/.voice-cache/
