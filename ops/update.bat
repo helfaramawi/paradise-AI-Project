@@ -5,7 +5,7 @@ set "FM_RC=0"
 if /i "%~1"=="/nopause" set "FM_NO_PAUSE=1"
 cd /d "%~dp0.."
 call "%~dp0_common.bat" :checkdocker || goto fail
-echo Step 1/3: backing up the database ...
+echo Step 1/3: taking a full, verified backup ...
 set "FM_SAVED_NO_PAUSE=%FM_NO_PAUSE%"
 set "FM_NO_PAUSE=1"
 call "%~dp0backup.bat"

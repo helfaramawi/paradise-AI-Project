@@ -1,23 +1,119 @@
 @echo off
-rem Back up the Future Mirror AI database to backups\fm_YYYYMMDD_HHMMSS.dump
+rem Full, verified backup of Future Mirror AI into backups\fm_YYYYMMDD_HHMMSS\ :
+rem   database.dump  all application data (PostgreSQL custom-format dump)
+rem   env.backup     the .env file (database password, connector secrets) - keep backups private
+rem   n8n.tar.gz     n8n workflows and settings (only if the automation profile was ever used)
+rem   manifest.txt   time, code version, verification result, row counts, SHA-256 checksums
+rem Every backup is test-restored into a scratch database and compared with the live data.
+rem Options (environment or .env): FM_BACKUP_KEEP=30 (newest backups kept), FM_BACKUP_COPY_TO=D:\Backups (second copy).
 setlocal
 set "FM_RC=0"
+set "FM_DIR="
 if /i "%~1"=="/nopause" set "FM_NO_PAUSE=1"
 cd /d "%~dp0.."
 call "%~dp0_common.bat" :checkdocker || goto fail
-if not exist "backups" mkdir "backups"
+
+set "FM_KEEP=%FM_BACKUP_KEEP%"
+set "FM_COPY_TO=%FM_BACKUP_COPY_TO%"
+if exist ".env" if not defined FM_KEEP for /f "tokens=1,* delims==" %%a in ('findstr /b /c:"FM_BACKUP_KEEP=" ".env"') do set "FM_KEEP=%%b"
+if exist ".env" if not defined FM_COPY_TO for /f "tokens=1,* delims==" %%a in ('findstr /b /c:"FM_BACKUP_COPY_TO=" ".env"') do set "FM_COPY_TO=%%b"
+if not defined FM_KEEP set "FM_KEEP=30"
+set /a FM_KEEP=FM_KEEP+0 2>nul
+if %FM_KEEP% lss 1 set "FM_KEEP=30"
+
+call "%~dp0_common.bat" :timestamp
+set "FM_NAME=fm_%FM_TS%"
+set "FM_DIR=backups\%FM_NAME%"
+mkdir "%FM_DIR%" || goto fail
 docker compose up -d db || goto fail
 call "%~dp0_common.bat" :waitdb || goto fail
-call "%~dp0_common.bat" :timestamp
-set "FM_FILE=backups\fm_%FM_TS%.dump"
-echo Backing up the database ...
-docker compose exec -T db sh -c "pg_dump -U $POSTGRES_USER -d $POSTGRES_DB -Fc -f /tmp/fm_backup.dump" || goto fail
-docker compose cp db:/tmp/fm_backup.dump "%FM_FILE%" || goto fail
-docker compose exec -T db rm -f /tmp/fm_backup.dump >nul 2>&1
-for %%f in ("%FM_FILE%") do echo Backup saved: %%~ff [%%~zf bytes]
+docker compose cp "ops\db\fm_db.sh" db:/tmp/fm_db.sh >nul 2>&1 || goto fail
+
+echo 1/4 Backing up the database ...
+docker compose exec -T db sh /tmp/fm_db.sh backup /tmp/fm_backup.dump || goto fail
+docker compose cp db:/tmp/fm_backup.dump "%FM_DIR%\database.dump" >nul 2>&1 || goto fail
+
+echo 2/4 Verifying the backup by restoring it into a scratch database ...
+docker compose exec -T db sh /tmp/fm_db.sh verify /tmp/fm_backup.dump > "%FM_DIR%\verify.txt"
+if errorlevel 1 (
+  type "%FM_DIR%\verify.txt"
+  echo [ERROR] Backup verification failed - this backup is NOT usable.
+  goto fail
+)
+set "FM_VERDICT="
+for /f "usebackq delims=" %%v in ("%FM_DIR%\verify.txt") do if not defined FM_VERDICT set "FM_VERDICT=%%v"
+del "%FM_DIR%\verify.txt"
+echo     %FM_VERDICT%
+docker compose exec -T db cat /tmp/fm_restored_counts.txt > "%FM_DIR%\counts.txt" || goto fail
+docker compose exec -T db rm -f /tmp/fm_backup.dump /tmp/fm_db.sh /tmp/fm_live_counts.txt /tmp/fm_restored_counts.txt /tmp/fm_verify.log >nul 2>&1
+
+echo 3/4 Saving configuration and automation data ...
+if exist ".env" (
+  copy /y ".env" "%FM_DIR%\env.backup" >nul || goto fail
+  echo     .env saved
+) else (
+  echo     no .env file - defaults in use
+)
+docker volume inspect future-mirror_n8ndata >nul 2>&1 || goto non8n
+docker run --rm -v future-mirror_n8ndata:/data:ro -v "%CD%\%FM_DIR%:/out" alpine:3.20 tar czf /out/n8n.tar.gz -C /data . || goto fail
+echo     n8n data saved
+goto manifest
+:non8n
+echo     n8n not used - nothing to save
+:manifest
+
+echo 4/4 Writing the manifest ...
+set "FM_GIT=unknown"
+for /f %%c in ('git rev-parse --short HEAD 2^>nul') do set "FM_GIT=%%c"
+set "FM_M=%FM_DIR%\manifest.txt"
+> "%FM_M%" echo Future Mirror AI backup
+>>"%FM_M%" echo Created:      %FM_TS:~0,4%-%FM_TS:~4,2%-%FM_TS:~6,2% %FM_TS:~9,2%:%FM_TS:~11,2%:%FM_TS:~13,2%
+>>"%FM_M%" echo Code version: %FM_GIT%
+>>"%FM_M%" echo Verification: %FM_VERDICT%
+>>"%FM_M%" echo.
+>>"%FM_M%" echo Files (SHA-256):
+for %%f in (database.dump env.backup n8n.tar.gz) do if exist "%FM_DIR%\%%f" call :hashline "%%f"
+>>"%FM_M%" echo.
+>>"%FM_M%" echo Rows per table in the verified copy:
+for /f "usebackq tokens=1,2" %%a in ("%FM_DIR%\counts.txt") do >>"%FM_M%" echo   %%a  %%b
+del "%FM_DIR%\counts.txt"
+>>"%FM_M%" echo.
+>>"%FM_M%" echo Restore with: ops\restore.bat %FM_NAME%   (macOS/Linux: ops/restore.sh %FM_NAME%)
+
+if defined FM_COPY_TO call :copyoffsite
+rem Retention: keep the newest FM_KEEP good backups (folders and older single-file dumps).
+for /f "skip=%FM_KEEP% delims=" %%d in ('dir /b /o-n "backups\fm_*" 2^>nul') do call :removeold "%%d"
+
+echo.
+echo Backup complete and verified: %CD%\%FM_DIR%
+set "FM_DIR="
 goto done
+
+:hashline
+set "FM_HASH="
+for /f "skip=1 delims=" %%h in ('certutil -hashfile "%FM_DIR%\%~1" SHA256') do if not defined FM_HASH set "FM_HASH=%%h"
+if defined FM_HASH set "FM_HASH=%FM_HASH: =%"
+for %%s in ("%FM_DIR%\%~1") do >>"%FM_M%" echo   %~1  %%~zs bytes  %FM_HASH%
+exit /b 0
+
+:copyoffsite
+if not exist "%FM_COPY_TO%" mkdir "%FM_COPY_TO%" >nul 2>&1
+xcopy /e /i /q /y "%FM_DIR%" "%FM_COPY_TO%\%FM_NAME%\" >nul 2>&1 || goto copyfailed
+echo Second copy saved to: %FM_COPY_TO%\%FM_NAME%
+exit /b 0
+:copyfailed
+echo WARNING: could not copy the backup to %FM_COPY_TO% - the backup in %FM_DIR% is fine
+exit /b 0
+
+:removeold
+if exist "backups\%~1\" (rd /s /q "backups\%~1") else (del /q "backups\%~1")
+echo Removed old backup: backups\%~1
+exit /b 0
+
 :fail
 echo [FAILED] See the messages above.
+rem A backup that did not finish (or failed verification) is renamed so it is never mistaken for a good one.
+if defined FM_DIR if exist "%FM_DIR%" ren "%FM_DIR%" "failed_%FM_NAME%" && echo Incomplete backup moved to backups\failed_%FM_NAME%
 set "FM_RC=1"
 :done
 if not defined FM_NO_PAUSE pause

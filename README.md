@@ -72,12 +72,32 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Start | `ops\start.bat` | `ops/start.sh` | Starts the app (rebuilding it if the code changed, e.g. after `git pull`), waits until it is ready and opens http://localhost:8080 |
 | Stop | `ops\stop.bat` | `ops/stop.sh` | Stops the app. Data is kept |
 | Restart | `ops\restart.bat` | `ops/restart.sh` | Stops and starts the app (rebuilding if the code changed), e.g. after editing `.env` |
-| Back up | `ops\backup.bat` | `ops/backup.sh` | Saves the database to `backups/fm_YYYYMMDD_HHMMSS.dump` (works while the app runs) |
-| Restore | `ops\restore.bat [file]` | `ops/restore.sh [file]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then replaces all data with the chosen backup |
+| Back up | `ops\backup.bat` | `ops/backup.sh` | Full backup into the folder `backups/fm_YYYYMMDD_HHMMSS/`: database, `.env` and n8n data. Each backup is test-restored and checked before it counts as good (works while the app runs) |
+| Restore | `ops\restore.bat [backup]` | `ops/restore.sh [backup]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then restores the database, n8n data and (on a machine without one) `.env`. It also restores older single-file `.dump` backups |
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
 | Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
 
-To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`). The `backups/` folder is ignored by git. Copy it somewhere safe (another disk or cloud storage) to protect against losing the computer. Backups contain the database only. Keep your `.env` file safely as well, because it holds the database password and connector secrets.
+To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
+
+Each backup folder contains:
+
+| File | What it is |
+|---|---|
+| `database.dump` | All application data (PostgreSQL custom format) |
+| `env.backup` | Your `.env`: the database password and connector secrets |
+| `n8n.tar.gz` | n8n workflows and settings (only if you use the automation profile) |
+| `manifest.txt` | Date, code version, the verification result, SHA-256 checksums and rows per table |
+
+Every backup is restored into a temporary scratch database and compared table by table with the live data. If that check fails, the folder is renamed `failed_fm_…` so it is never mistaken for a good backup, and the script reports an error (exit code 1, so Task Scheduler shows the failure).
+
+The newest 30 backups are kept. Change the number with `FM_BACKUP_KEEP=` in `.env`. To keep a second copy on another disk or a synced cloud folder, set `FM_BACKUP_COPY_TO=D:\FutureMirrorBackups` (any path) in `.env`. The `backups/` folder is ignored by git.
+
+To restore on a new machine:
+1. Install Docker and clone the repository.
+2. Copy the backup folder into `backups/`.
+3. Run `ops\restore.bat fm_YYYYMMDD_HHMMSS`.
+
+The restore puts `.env` back first and re-applies its database password, so you do not need to recreate `.env` by hand. Backups contain secrets, so store them privately.
 
 ### Demo accounts
 
