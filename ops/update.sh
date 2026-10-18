@@ -2,7 +2,7 @@
 # Update to the latest version: back up, pull the latest code from GitHub, rebuild and restart.
 source "$(dirname "$0")/_common.sh"
 check_docker
-echo "Step 1/3: backing up the database ..."
+echo "Step 1/3: taking a full, verified backup ..."
 "$OPS_DIR/backup.sh"
 echo "Step 2/3: pulling the latest code ..."
 git pull origin main
