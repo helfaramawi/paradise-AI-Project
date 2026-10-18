@@ -1,0 +1,343 @@
+{
+  "name": "Future Mirror — Post-decision performance tracking",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/post_decision_tracking",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "3c2c7031-f46e-5889-9426-9056c7a9d6bd",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "a5dc1717-c0ae-524e-aa63-0ceaa40de6f2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "f7676e44-79d9-5279-82b2-2a4372251745",
+      "name": "Schedule (0 8 1 * *)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "4bfd4244-85d6-5b3e-a0d1-4ccb3db71787",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Settings').first().json.email, password: $('Settings').first().json.password, tenant: $('Settings').first().json.tenant }) }}",
+        "options": {}
+      },
+      "id": "f301a1b0-b568-5d0e-a7ff-61369c034557",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The platform (or another system) can POST actuals to this webhook:\n// { \"decision_id\": \"...\", \"actuals\": [ { \"month\": 4, \"metric\": \"opex_monthly\", \"value\": 12.3 }, ... ] }\n// Without actuals (or on the monthly schedule) the workflow sends reminders instead.\nconst t = $('Settings').first().json.trigger;\nconst record = Array.isArray(t.actuals) && t.actuals.length && t.decision_id;\nreturn [{ json: record ? { mode: 'record', decision_id: t.decision_id, actuals: t.actuals } : { mode: 'remind' } }];"
+      },
+      "id": "c076ad60-5662-57e0-8ffa-a31c6fd8a5eb",
+      "name": "Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/decisions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94391fe0-33c3-5d7a-bf96-3bbe007b2d17",
+      "name": "List decisions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Prepare').first().json;\nif (p.mode === 'record') return [{ json: { action: 'record', id: p.decision_id, actuals: p.actuals } }];\nreturn $input.all().map(i => i.json).filter(d => d.id && d.status === 'approved')\n  .map(d => ({ json: { action: 'remind', id: d.id, title: d.title } }));"
+      },
+      "id": "9cab1b8e-75a7-54aa-aee5-75db795c3b32",
+      "name": "Record or find decisions to remind",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/decisions/{{ $json.id }}/outcomes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "81da51f8-5366-562b-a66f-4883e2ea190b",
+      "name": "Get recorded actuals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Record or find decisions to remind').all().map(i => i.json);\nconst r = items.find(i => i.action === 'record');\nreturn r ? [{ json: { id: r.id, body: r.actuals } }] : [];"
+      },
+      "id": "8b3623ff-707e-5a25-afa2-fcc2413be60e",
+      "name": "Actuals to record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/decisions/{{ $json.id }}/outcomes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "d2ef72b1-3de6-5e84-a857-418c5ca9c687",
+      "name": "Record actuals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Record or find decisions to remind').all().map(i => i.json);\nif (items.some(i => i.action === 'record')) return [];\nconst app = $('Settings').first().json.appUrl;\nconst lines = $('Get recorded actuals').all().map((it, i) => {\n  const months = (it.json.actuals || []).map(a => a.month);\n  const next = months.length ? Math.max(...months) + 1 : 1;\n  return `- ${items[i].title}: record month ${next}` + (months.length ? ` (last recorded: month ${next - 1})` : ' (nothing recorded yet)');\n});\nif (!lines.length) return [];\nreturn [{ json: { subject: `Future Mirror: please record last month's actual results`,\n  text: `Approved decisions need their actual results so the Reality Feedback Loop can check the forecasts:\\n\\n${lines.join('\\n')}\\n\\nRecord them under Reality feedback: ${app}/outcomes` } }];"
+      },
+      "id": "0d1ba175-c2d7-5163-953c-f3ad5fc215d0",
+      "name": "Build reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "810bb415-65c8-5819-87ae-02976733eeea",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2000,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (0 8 1 * *)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare": {
+      "main": [
+        [
+          {
+            "node": "List decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List decisions": {
+      "main": [
+        [
+          {
+            "node": "Record or find decisions to remind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record or find decisions to remind": {
+      "main": [
+        [
+          {
+            "node": "Get recorded actuals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get recorded actuals": {
+      "main": [
+        [
+          {
+            "node": "Actuals to record",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actuals to record": {
+      "main": [
+        [
+          {
+            "node": "Record actuals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build reminder": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Monthly (1st, 08:00) reminds the team to record actual results for approved decisions; when actuals are POSTed to the webhook it records them in the platform."
+  },
+  "pinData": {},
+  "tags": []
+}

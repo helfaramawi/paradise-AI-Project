@@ -1,0 +1,263 @@
+{
+  "name": "Future Mirror — Financial KPI monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/kpi_monitor",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "2f49ca78-7d37-5f31-b4d3-6b6769969a8c",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "e8c1d074-a10a-5cf4-846b-68b4e4cfcf0f"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "7ba9fe0a-6173-561f-a287-7e610ae207a7",
+      "name": "Schedule (0 7 * * *)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "57de6f8a-eaca-5dd0-8e7f-22ad76205106",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Settings').first().json.email, password: $('Settings').first().json.password, tenant: $('Settings').first().json.tenant }) }}",
+        "options": {}
+      },
+      "id": "aabe7ef4-5380-5764-b2d7-ad42e0b815b4",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/decisions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "732ed1e8-a650-56f1-9154-1cc7d6e7d699",
+      "name": "List decisions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(i => i.json).filter(d => d.id && d.run_count > 0)\n  .map(d => ({ json: { id: d.id, title: d.title } }));"
+      },
+      "id": "87c253f5-8433-54d7-b770-dbbd0ddfc93e",
+      "name": "Decisions with forecasts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/decisions/{{ $json.id }}/outcomes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "586880e0-724d-53d0-bdec-d3341f48b000",
+      "name": "Get actuals vs forecast",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// A breach = the latest recorded month of a metric falls outside the forecast band (P10-P90).\nconst picked = $('Decisions with forecasts').all().map(i => i.json);\nconst app = $('Settings').first().json.appUrl;\nconst lines = [];\n$input.all().forEach((it, i) => {\n  const comps = it.json.comparisons || []; const names = it.json.metrics || {};\n  if (!comps.length) return;\n  const last = Math.max(...comps.map(c => c.month));\n  for (const c of comps.filter(c => c.month === last && !c.within_interval)) {\n    const lo = Math.min(c.predicted_p10, c.predicted_p90), hi = Math.max(c.predicted_p10, c.predicted_p90);\n    lines.push(`- ${picked[i].title} - ${names[c.metric]?.en || c.metric}, month ${c.month}: actual ${c.actual.toFixed(2)} ` +\n               `is ${c.actual > hi ? 'above' : 'below'} the forecast band ${lo.toFixed(2)}-${hi.toFixed(2)}`);\n  }\n});\nif (!lines.length) return [];  // everything inside the band: no email\nreturn [{ json: { subject: `Future Mirror KPI alert: ${lines.length} metric(s) outside the forecast band`,\n  text: `These KPIs moved outside the range the analysis predicted:\\n\\n${lines.join('\\n')}\\n\\nReview them under Reality feedback: ${app}/outcomes` } }];"
+      },
+      "id": "d9fe5d7e-8305-5220-822d-357b2b093537",
+      "name": "Find breaches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "53f36a82-550e-5f71-96e2-3c44840aee08",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (0 7 * * *)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login": {
+      "main": [
+        [
+          {
+            "node": "List decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List decisions": {
+      "main": [
+        [
+          {
+            "node": "Decisions with forecasts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decisions with forecasts": {
+      "main": [
+        [
+          {
+            "node": "Get actuals vs forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get actuals vs forecast": {
+      "main": [
+        [
+          {
+            "node": "Find breaches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find breaches": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Every morning at 07:00 compares the latest actuals with the forecast bands of each analysed decision and emails an alert when a KPI falls outside its band."
+  },
+  "pinData": {},
+  "tags": []
+}

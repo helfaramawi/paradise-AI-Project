@@ -1,0 +1,110 @@
+{
+  "name": "Future Mirror — Contractor reduction notices (safe: drafts only)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/execute_contractor_notice",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "34a9aa76-7d07-565d-ba35-f0db8571c538",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "4365def4-a74a-506f-a5bf-c8b51f9e7740"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "dea117f3-dbb9-5ee6-86c4-445b27d4fe51",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// CONSEQUENTIAL scenario. The platform blocks live runs unless the decision is approved and\n// external actions are enabled (policies GOV-003 / GOV-014). Even then, this workflow only emails a\n// draft to HR for manual handling. It never contacts contractors, HR or ERP systems.\nconst t = $('Settings').first().json.trigger;\nif (!t.idempotency_key) return [];\nreturn [{ json: { subject: `ACTION NEEDED (manual): contractor reduction notices for decision ${t.decision_id || ''}`,\n  text: `Future Mirror AI recorded an approved request to prepare contractor reduction notices.\\n\\n` +\n        `Decision: ${t.decision_id || ''}\\nRequested at: ${t.requested_at || ''}\\n\\n` +\n        `No notices were sent. Please prepare and issue them manually through the normal HR and legal process.` } }];"
+      },
+      "id": "2544b5c7-bee1-58bd-93b5-d1d18a7984ce",
+      "name": "Draft for HR (no notices sent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.hrTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "34ab4a0f-a271-5727-a20e-079ae63774a5",
+      "name": "Email HR",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Draft for HR (no notices sent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft for HR (no notices sent)": {
+      "main": [
+        [
+          {
+            "node": "Email HR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Consequential scenario, deliberately safe: emails HR a draft request for manual handling. Never contacts contractors or HR/ERP systems."
+  },
+  "pinData": {},
+  "tags": []
+}

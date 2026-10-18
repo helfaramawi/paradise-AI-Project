@@ -1,0 +1,204 @@
+{
+  "name": "Future Mirror — Approval routing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/approval_workflow",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "3da5c65a-b615-5289-853b-39c884080323",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "2f23dd52-7ec3-52ce-9e05-efa1a3723b3d"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 0-4"
+            }
+          ]
+        }
+      },
+      "id": "5d4926a1-a7ea-5e3a-bc2b-d9082717d47d",
+      "name": "Schedule (0 9 * * 0-4)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "4a6bc4a7-d33a-5217-bc99-a53893aeaed7",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Settings').first().json.email, password: $('Settings').first().json.password, tenant: $('Settings').first().json.tenant }) }}",
+        "options": {}
+      },
+      "id": "477fb8df-e015-58c8-aefd-09d20c87c28b",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/approvals?status=pending",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b807a40-f78d-54a8-ae76-26f1f415f16d",
+      "name": "List pending approvals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One email per role that still has to approve. Map roles to addresses with FM_ROLE_EMAILS\n// (JSON, e.g. {\"cfo\":\"karim@company.com\",\"legal\":\"laila@company.com\"}); defaults are the demo users.\nlet map = {};\ntry { map = JSON.parse($env.FM_ROLE_EMAILS || '{}'); } catch (e) { map = {}; }\nconst app = $('Settings').first().json.appUrl;\nconst byRole = {};\nfor (const a of $input.all().map(i => i.json).filter(a => a.id)) {\n  for (const r of a.pending_roles || []) (byRole[r] = byRole[r] || []).push(a);\n}\nreturn Object.entries(byRole).map(([role, list]) => ({ json: {\n  to: map[role] || `${role}@futuremirror.demo`,\n  subject: `Future Mirror: ${list.length} approval(s) waiting for ${role.toUpperCase()}`,\n  text: `These decisions are waiting for your approval as ${role.toUpperCase()}:\\n\\n` +\n        list.map(a => `- ${a.decision_title} (requested by ${a.requested_by_name || 'unknown'})`).join('\\n') +\n        `\\n\\nApprove or reject them in Future Mirror AI: ${app}/approvals`,\n}}));"
+      },
+      "id": "bd5af7cc-39ef-5991-8339-64ee4f48a2f0",
+      "name": "Route to each role",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "57653a88-c96c-5a34-b1f6-ac71bc827c30",
+      "name": "Email each approver",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (0 9 * * 0-4)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login": {
+      "main": [
+        [
+          {
+            "node": "List pending approvals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List pending approvals": {
+      "main": [
+        [
+          {
+            "node": "Route to each role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to each role": {
+      "main": [
+        [
+          {
+            "node": "Email each approver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Sends each required role (CFO, Legal, HR...) a list of the approvals waiting for them, on every new request and each working-day morning at 09:00."
+  },
+  "pinData": {},
+  "tags": []
+}

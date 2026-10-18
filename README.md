@@ -162,7 +162,7 @@ backend/            FastAPI service
 frontend/           React + TypeScript + Vite + Tailwind executive cockpit
   src/pages/        17 screens
   e2e/              Playwright end-to-end demo
-automation/n8n/     importable n8n workflow examples
+automation/n8n/     importable n8n workflows, one per automation scenario (see its README)
 docs/               screenshots, OpenAPI export
 scripts/            perf test, proxy-aware docker build
 ```
