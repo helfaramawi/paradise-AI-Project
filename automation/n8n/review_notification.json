@@ -1,0 +1,110 @@
+{
+  "name": "Future Mirror — Decision review notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/review_notification",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1ae46fea-be93-50f0-9ccb-50bfebc4a74c",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "f13ae1fe-4188-5ea1-84fd-1fe4143f2f36"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "0c40c3f5-cc3a-59fa-856b-08630b96a756",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sent by the platform when a strategy is submitted for approval.\nconst t = $('Settings').first().json.trigger;\nconst app = $('Settings').first().json.appUrl;\nif (!t.idempotency_key) return [];  // not from Future Mirror\nconst roles = Array.isArray(t.roles) ? t.roles.join(', ') : (t.roles || 'approvers');\nreturn [{ json: { subject: `Decision awaiting your approval: ${t.decision || ''}`,\n  text: `A strategy was submitted for approval.\\n\\nDecision: ${t.decision || ''}\\nApproval request: ${t.approval_request_id || ''}\\nRequired roles: ${roles}\\n\\nReview it in Future Mirror AI: ${app}/approvals\\nThis notification performs no business action.` } }];"
+      },
+      "id": "16cce439-0fac-5d89-8fa3-2bb370e2bf40",
+      "name": "Build message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "defd63dc-96e5-5773-9677-35ca3b9343de",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Build message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build message": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Emails approvers when a strategy is submitted for approval."
+  },
+  "pinData": {},
+  "tags": []
+}

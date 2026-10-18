@@ -83,7 +83,7 @@ cd frontend && npm install && npm run dev        # http://localhost:5173
 ## 7. n8n integration
 
 1. `docker compose --profile automation up -d`, then open n8n at :5678.
-2. Import `automation/n8n/decision_review_notification.json` and activate it.
+2. Import the seven workflows in `automation/n8n/` (one per Automation Center scenario), select an SMTP credential in each email node, and activate them. See [automation/n8n/README.md](automation/n8n/README.md) for the full steps and the optional `FM_N8N_*` email settings.
 3. Set `FM_N8N_BASE_URL=http://n8n:5678` and restart the backend.
 4. In the Automation Center, a **Live run** of a non-consequential workflow posts to `…/webhook/future-mirror/<key>` with an idempotency key. Consequential workflows remain blocked by GOV-014.
 

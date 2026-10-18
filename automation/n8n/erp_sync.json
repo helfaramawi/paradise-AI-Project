@@ -1,0 +1,267 @@
+{
+  "name": "Future Mirror — ERP data synchronisation (read-only)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/erp_sync",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "5386101c-4378-5da3-8129-507b59f3180a",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "623e7a59-db52-55db-a984-30a6b8bdd267"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "4956dffc-49c8-5071-b5bd-796cc1f435c5",
+      "name": "Schedule (0 2 * * *)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "d09a8eaf-5558-5cda-9777-bcea5e0cd7e4",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Settings').first().json.email, password: $('Settings').first().json.password, tenant: $('Settings').first().json.tenant }) }}",
+        "options": {}
+      },
+      "id": "48f7a509-f95a-50e9-978a-2ecab836806a",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/connectors",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1f38cff2-bf09-5ae2-99ea-98f110614f93",
+      "name": "List connectors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only connectors that passed \"Test connection\" in the platform (status = connected).\nreturn $input.all().map(i => i.json)\n  .filter(c => c.id && c.status === 'connected' && c.kind !== 'csv')\n  .map(c => ({ json: { id: c.id, name: c.name } }));"
+      },
+      "id": "0e8a942a-6b73-5d8c-ade6-4075db2f2a13",
+      "name": "Pick connected systems",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/connectors/{{ $json.id }}/sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "aa906e03-5fb9-5d1d-90bc-dce92233ca83",
+      "name": "Sync connector (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const picked = $('Pick connected systems').all().map(i => i.json);\nconst lines = []; let changed = 0, failed = 0;\n$input.all().forEach((it, i) => {\n  const c = picked[i] || {}; const r = it.json;\n  if (r.error) { failed++; lines.push(`- ${c.name}: FAILED - ${r.error.message || r.error}`); return; }\n  if ((r.changed_fields || []).length) changed++;\n  lines.push(`- ${c.name}: ${r.rows_read} rows read; changed: ${(r.changed_fields || []).join(', ') || 'nothing'}` +\n             (r.version ? ` (new dataset version ${r.version.version_number ?? ''})` : ''));\n});\n// Email only when something changed or failed.\nif (!changed && !failed) return [];\nreturn [{ json: { subject: `Future Mirror ERP sync: ${changed} changed, ${failed} failed`,\n  text: `Nightly read-only sync of cost data from the connected systems.\\n\\n${lines.join('\\n')}\\n\\nNothing was written to the ERP systems. Details: ${$('Settings').first().json.appUrl}/data` } }];"
+      },
+      "id": "ec1fcbda-d83f-541c-9e5a-010c037df32d",
+      "name": "Summarise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "d4f0860e-cc1d-5042-b7b0-cb2c51ce3305",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (0 2 * * *)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login": {
+      "main": [
+        [
+          {
+            "node": "List connectors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List connectors": {
+      "main": [
+        [
+          {
+            "node": "Pick connected systems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick connected systems": {
+      "main": [
+        [
+          {
+            "node": "Sync connector (read-only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync connector (read-only)": {
+      "main": [
+        [
+          {
+            "node": "Summarise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Every night at 02:00 pulls the latest cost data from each connected system (D365, SAP, REST, SQL); emails only when data changed or a sync failed."
+  },
+  "pinData": {},
+  "tags": []
+}

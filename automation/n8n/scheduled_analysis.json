@@ -1,0 +1,267 @@
+{
+  "name": "Future Mirror — Weekly scheduled re-analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "future-mirror/scheduled_analysis",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "f9e49573-22ad-5b0b-8fb7-2bb1b716ad85",
+      "name": "Webhook from Future Mirror",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "930df9d2-cbbb-5e00-9456-c6a00123799e"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "e6d9caa3-aa89-5b2e-92c7-1ae0ec538c13",
+      "name": "Schedule (0 6 * * 1)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connection settings come from the n8n container environment (docker-compose.yml);\n// the defaults work with the demo data. The webhook payload (if any) is kept as \"trigger\".\nconst e = $env;\nconst first = $input.first().json;\nreturn [{ json: {\n  api: (e.FM_API_URL || 'http://backend:8000/api/v1').replace(/\\/$/, ''),\n  email: e.FM_API_EMAIL || 'cfo@futuremirror.demo',\n  password: e.FM_API_PASSWORD || 'FutureMirror!2026',\n  tenant: e.FM_API_TENANT || 'nile-engineering',\n  alertTo: e.FM_ALERT_EMAIL || 'approvers@example.com',\n  hrTo: e.FM_HR_EMAIL || 'hr@example.com',\n  from: e.FM_FROM_EMAIL || 'future-mirror@example.com',\n  appUrl: (e.FM_APP_URL || 'http://localhost:8080').replace(/\\/$/, ''),\n  trigger: first.body || {},\n}}];"
+      },
+      "id": "d5b2fd0e-5f40-5d94-8ef3-24277520c9d6",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Settings').first().json.email, password: $('Settings').first().json.password, tenant: $('Settings').first().json.tenant }) }}",
+        "options": {}
+      },
+      "id": "758366f2-f17e-5dcf-ac6b-f1eefef78b05",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Settings').first().json.api }}/decisions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f7824a7a-412b-5103-b100-7c3c4ea8648c",
+      "name": "List decisions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One decision when the platform sent decision_id, otherwise every analysed, non-rejected decision.\nconst wanted = $('Settings').first().json.trigger.decision_id;\nconst all = $input.all().map(i => i.json).filter(d => d.id);\nconst chosen = wanted ? all.filter(d => d.id === wanted)\n                      : all.filter(d => d.run_count > 0 && d.status !== 'rejected');\nreturn chosen.map(d => ({ json: { id: d.id, title: d.title } }));"
+      },
+      "id": "89a2f239-eeda-5526-8fb4-bb94876e7563",
+      "name": "Pick decisions to re-run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api }}/decisions/{{ $json.id }}/runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Login').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "03de6b40-f967-5ddb-a1fd-efb95d32962a",
+      "name": "Start analysis run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const picked = $('Pick decisions to re-run').all().map(i => i.json);\nconst app = $('Settings').first().json.appUrl;\nconst lines = $input.all().map((it, i) => {\n  const d = picked[i] || {};\n  return it.json.run_id ? `- ${d.title}: re-analysis started (run ${it.json.run_id})`\n                        : `- ${d.title}: not started - ${it.json.error?.message || 'already running or stopped'}`;\n});\nreturn [{ json: { subject: `Future Mirror: weekly re-analysis of ${picked.length} decision(s)`,\n  text: `The weekly re-analysis ran on the latest dataset version.\\n\\n${lines.join('\\n')}\\n\\nOpen ${app}/decisions to review the results.` } }];"
+      },
+      "id": "a6bb9a2b-01fb-5c56-a3ce-6b56d2e7c68d",
+      "name": "Summarise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.from }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "fdae59fe-ee24-500d-ab5e-9a38be3974b6",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook from Future Mirror": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (0 6 * * 1)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login": {
+      "main": [
+        [
+          {
+            "node": "List decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List decisions": {
+      "main": [
+        [
+          {
+            "node": "Pick decisions to re-run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick decisions to re-run": {
+      "main": [
+        [
+          {
+            "node": "Start analysis run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start analysis run": {
+      "main": [
+        [
+          {
+            "node": "Summarise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "futureMirror": "Re-runs the decision analysis every Monday 06:00 (Cairo) on the latest dataset version and emails a summary."
+  },
+  "pinData": {},
+  "tags": []
+}

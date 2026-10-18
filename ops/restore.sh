@@ -54,7 +54,7 @@ if [ -d "$src" ] && [ -f "$src/n8n.tar.gz" ]; then
   echo "Restoring n8n data ..."
   docker volume create future-mirror_n8ndata >/dev/null 2>&1
   docker run --rm -v future-mirror_n8ndata:/data -v "$(cd "$src" && pwd):/in:ro" alpine:3.20 \
-    sh -c 'rm -rf /data/* /data/.[!.]* 2>/dev/null; tar xzf /in/n8n.tar.gz -C /data'
+    sh -c 'rm -rf /data/* /data/.[!.]* 2>/dev/null; tar xzf /in/n8n.tar.gz -C /data && chown -R 1000:1000 /data'
 fi
 echo "Starting the app ..."
 docker compose up -d

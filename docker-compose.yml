@@ -53,6 +53,15 @@ services:
     environment:
       N8N_SECURE_COOKIE: "false"
       GENERIC_TIMEZONE: Africa/Cairo
+      # Read by the workflows in automation/n8n (see its README)
+      FM_API_URL: http://backend:8000/api/v1
+      FM_API_EMAIL: ${FM_N8N_API_EMAIL:-cfo@futuremirror.demo}
+      FM_API_PASSWORD: ${FM_N8N_API_PASSWORD:-FutureMirror!2026}
+      FM_APP_URL: http://localhost:${FM_HTTP_PORT:-8080}
+      FM_FROM_EMAIL: ${FM_N8N_FROM_EMAIL:-future-mirror@example.com}
+      FM_ALERT_EMAIL: ${FM_N8N_ALERT_EMAIL:-approvers@example.com}
+      FM_HR_EMAIL: ${FM_N8N_HR_EMAIL:-hr@example.com}
+      FM_ROLE_EMAILS: ${FM_N8N_ROLE_EMAILS:-}
     volumes:
       - n8ndata:/home/node/.n8n
     restart: unless-stopped
