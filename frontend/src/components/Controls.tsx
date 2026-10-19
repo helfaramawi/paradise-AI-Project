@@ -2,7 +2,7 @@ import { useI18n } from "@/lib/app";
 import { Select, SliderField, Toggle } from "./ui";
 
 export type Controls = {
-  domain: "opex" | "collections";
+  domain: "opex" | "collections" | "hotel";
   cost_reduction_target_pct: number;
   implementation_months: number;
   no_terminations: boolean;
@@ -33,24 +33,33 @@ export function pickControls(c: Record<string, unknown>): Controls {
   return out;
 }
 
+/** Starting controls for each decision model (hotel: target return, rooms out of service, guest floor, capital). */
+export function controlsFor(domain: Controls["domain"]): Controls {
+  if (domain === "collections") return { ...DEFAULT_CONTROLS, domain, cost_reduction_target_pct: 30 };
+  if (domain === "hotel") return { ...DEFAULT_CONTROLS, domain, cost_reduction_target_pct: 6, implementation_months: 12,
+    acceptable_delay_increase_pct: 35, min_csat_pct: 60, implementation_budget: 40, automation_investment: 0 };
+  return { ...DEFAULT_CONTROLS, domain };
+}
+
 export function ControlsForm({ value, onChange, compact, wide }: { value: Controls; onChange: (c: Controls) => void; compact?: boolean; wide?: boolean }) {
   const { t, num, pct, egp } = useI18n();
   const set = <K extends keyof Controls>(k: K, v: Controls[K]) => onChange({ ...value, [k]: v });
+  const hotel = value.domain === "hotel";
   return (
     <div className={compact ? "space-y-4" : wide ? "grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5" : "grid gap-5 md:grid-cols-2"}>
-      <SliderField label={t("in.target")} value={value.cost_reduction_target_pct} min={2} max={value.domain === "collections" ? 60 : 40} step={1}
-        onChange={(v) => set("cost_reduction_target_pct", v)} format={(v) => pct(v, 0)} />
+      <SliderField label={t("in.target")} value={value.cost_reduction_target_pct} min={hotel ? 1 : 2} max={value.domain === "collections" ? 60 : hotel ? 15 : 40} step={hotel ? 0.5 : 1}
+        onChange={(v) => set("cost_reduction_target_pct", v)} format={(v) => pct(v, hotel ? 1 : 0)} />
       <SliderField label={t("in.duration")} value={value.implementation_months} min={3} max={12} step={1}
         onChange={(v) => set("implementation_months", v)} format={(v) => `${num(v, 0)} ${t("months")}`} />
-      <SliderField label={t("in.automation")} value={value.automation_investment} min={0} max={value.domain === "collections" ? 10 : 20} step={0.5}
-        onChange={(v) => set("automation_investment", v)} format={(v) => egp(v, 1)} />
-      <SliderField label={t("in.delay")} value={value.acceptable_delay_increase_pct} min={0} max={10} step={0.5}
-        onChange={(v) => set("acceptable_delay_increase_pct", v)} format={(v) => `${num(v, 1)} ${t("pts")}`} />
+      {!hotel && <SliderField label={t("in.automation")} value={value.automation_investment} min={0} max={value.domain === "collections" ? 10 : 20} step={0.5}
+        onChange={(v) => set("automation_investment", v)} format={(v) => egp(v, 1)} />}
+      <SliderField label={t("in.delay")} value={value.acceptable_delay_increase_pct} min={0} max={hotel ? 100 : 10} step={hotel ? 5 : 0.5}
+        onChange={(v) => set("acceptable_delay_increase_pct", v)} format={(v) => (hotel ? pct(v, 0) : `${num(v, 1)} ${t("pts")}`)} />
       <SliderField label={t("in.maxUtil")} value={value.max_utilization_pct} min={75} max={95} step={1}
         onChange={(v) => set("max_utilization_pct", v)} format={(v) => pct(v, 0)} />
-      <SliderField label={t("in.csat")} value={value.min_csat_pct} min={75} max={90} step={0.5}
+      <SliderField label={t("in.csat")} value={value.min_csat_pct} min={hotel ? 50 : 75} max={90} step={0.5}
         onChange={(v) => set("min_csat_pct", v)} format={(v) => pct(v, 1)} />
-      <SliderField label={t("in.budget")} value={value.implementation_budget} min={2} max={30} step={1}
+      <SliderField label={t("in.budget")} value={value.implementation_budget} min={2} max={hotel ? 100 : 30} step={1}
         onChange={(v) => set("implementation_budget", v)} format={(v) => egp(v, 0)} />
       <label className="block">
         <div className="mb-1 text-xs font-medium text-ink2">{t("in.risk")}</div>

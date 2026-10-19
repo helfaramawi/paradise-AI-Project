@@ -31,6 +31,19 @@ FONT_CANDIDATES = [
 _FONT = None
 
 
+
+HOTEL_FIELDS = ("hotel_rooms", "hotel_occupancy_pct", "hotel_adr_egp", "hotel_staff_fte", "hotel_staff_utilization_pct",
+                "hotel_fixed_opex", "hotel_guest_score_pct", "hotel_asset_value", "hotel_capex_reserve")
+HOTEL_ROWS = [("savings_pct_at_deadline", "Net return at deadline (% of asset value)", "العائد الصافي في الموعد (% من قيمة الأصل)"),
+              ("stabilised_yield_pct", "Stabilised return (% of asset value)", "العائد بعد الاستقرار (% من قيمة الأصل)"),
+              ("steady_state_net_run_rate", "Stabilised net return (EGP M/yr)", "العائد الصافي بعد الاستقرار (مليون/سنة)"),
+              ("one_off_implementation_cost", "Capital investment (EGP M)", "الاستثمار الرأسمالي"),
+              ("payback_years", "Payback (years)", "فترة الاسترداد (سنة)"),
+              ("net_benefit_12m", "12m net benefit incl. capital (EGP M)", "صافي المنفعة 12 شهراً شاملة الاستثمار"),
+              ("max_delay_increase_pct", "Peak rooms out of service (%)", "أقصى نسبة غرف خارج الخدمة"),
+              ("min_csat_pct", "Lowest guest score (%)", "أدنى تقييم للنزلاء"),
+              ("staff_surplus_fte", "Surplus staff", "العمالة الزائدة")]
+
 def _font() -> tuple[str, str]:
     global _FONT
     if _FONT:
@@ -133,7 +146,8 @@ def build_pdf(dossier: dict[str, Any], lang: str = "en", comparisons: list[dict]
     story += [H("context"), table([
         [_t("en", "Metric", ""), "Value"] if lang == "en" else ["المؤشر", "القيمة"],
         *[[k.replace("_", " "), f"{v:,.2f}" if isinstance(v, float) else str(v)] for k, v in data.items()
-          if k in (("annual_revenue", "overdue_receivables", "ontime_collection_rate_pct", "inhouse_recovery_rate_pct",
+          if k in (HOTEL_FIELDS if (d.get("controls") or {}).get("domain") == "hotel" else
+                   ("annual_revenue", "overdue_receivables", "ontime_collection_rate_pct", "inhouse_recovery_rate_pct",
                     "writeoff_rate_pct", "key_account_overdue_share_pct", "collections_team_fte", "complaint_rate_pct",
                     "csat_pct", "opening_cash")
                    if (d.get("controls") or {}).get("domain") == "collections" else
@@ -164,7 +178,8 @@ def build_pdf(dossier: dict[str, Any], lang: str = "en", comparisons: list[dict]
             return f"{fmt.format(s['p50'])} [{fmt.format(s['p10'])}–{fmt.format(s['p90'])}]"
         rows = [hdr]
         collections = (d.get("controls") or {}).get("domain") == "collections"
-        metric_rows = ([("savings_pct_at_deadline", "Collections uplift % at deadline", "نسبة زيادة المتحصلات"),
+        hotel = (d.get("controls") or {}).get("domain") == "hotel"
+        metric_rows = HOTEL_ROWS if hotel else ([("savings_pct_at_deadline", "Collections uplift % at deadline", "نسبة زيادة المتحصلات"),
                         ("run_rate_savings_at_deadline", "Extra collections a year (EGP M)", "المتحصلات الإضافية سنوياً"),
                         ("agency_fees_12m", "Agency fees 12m (EGP M)", "عمولات شركة التحصيل 12 شهراً"),
                         ("one_off_implementation_cost", "Implementation cost (EGP M)", "تكلفة التنفيذ"),
@@ -188,6 +203,7 @@ def build_pdf(dossier: dict[str, Any], lang: str = "en", comparisons: list[dict]
         rows.append(["Constraints violated" if lang == "en" else "القيود غير المستوفاة",
                      *[", ".join(res[k]["constraints_violated"]) or "—" for k in "ABC"]])
         at_risk_label = (("Client segments at risk", "شرائح عملاء معرضة للخطر") if collections
+                         else ("Spaces closed > 3 months", "مساحات مغلقة أكثر من 3 أشهر") if hotel
                          else ("Projects at risk (DES)", "مشروعات معرضة للخطر"))
         rows.append([at_risk_label[lang == "ar"], *[str(res[k]["project_portfolio"]["projects_at_risk"]) for k in "ABC"]])
         story.append(table(rows, [52 * mm, 39 * mm, 39 * mm, 39 * mm]))

@@ -9,17 +9,22 @@ import { Bar, Card, FUTURE_COLOR, FutureChip, PageHeader, StatusBadge, Tabs } fr
 function Risk({ d, decisionId }: { d: any; decisionId: string }) {
   const { t, pick, prob, egp, dir, domain } = useI18n();
   const col = domain === "collections";
+  const hotel = domain === "hotel";
   const res = d.simulation.results;
   const [k, setK] = useState<"A" | "B" | "C">((d.run.result.recommendation.recommended_strategy as any) || "B");
   const f = res[k];
   const risks = d.risks.filter((r: any) => r.scenario_key === k);
   const probs: [string, number][] = [
-    [col ? pick("Meet collections target", "تحقيق هدف المتحصلات") : pick("Meet savings target", "تحقيق هدف الوفورات"), f.probabilities.meet_target],
-    [col ? pick("Complaints within acceptable limit", "الشكاوى ضمن الحد المقبول") : pick("Delay within acceptable limit", "تأخير ضمن الحد المقبول"),
+    [col ? pick("Meet collections target", "تحقيق هدف المتحصلات") : hotel ? pick("Meet target return", "تحقيق العائد المستهدف")
+      : pick("Meet savings target", "تحقيق هدف الوفورات"), f.probabilities.meet_target],
+    [col ? pick("Complaints within acceptable limit", "الشكاوى ضمن الحد المقبول") : hotel
+      ? pick("Rooms out of service within limit", "الغرف خارج الخدمة ضمن الحد") : pick("Delay within acceptable limit", "تأخير ضمن الحد المقبول"),
       f.probabilities.delay_within_acceptable],
-    [pick("CSAT maintained", "الحفاظ على رضا العملاء"), f.probabilities.csat_maintained],
+    [hotel ? pick("Guest score maintained", "الحفاظ على تقييم النزلاء") : pick("CSAT maintained", "الحفاظ على رضا العملاء"),
+      f.probabilities.csat_maintained],
     [pick("Positive 12m net benefit", "صافي منفعة موجب"), f.probabilities.positive_net_benefit_12m],
-    [col ? pick("Key-account attrition within limit", "فقد كبار العملاء ضمن الحد") : pick("No contractual breach", "عدم الإخلال التعاقدي"),
+    [col ? pick("Key-account attrition within limit", "فقد كبار العملاء ضمن الحد") : hotel
+      ? pick("Surplus staff within redeployment capacity", "العمالة الزائدة ضمن طاقة إعادة التوزيع") : pick("No contractual breach", "عدم الإخلال التعاقدي"),
       1 - f.probabilities.contractual_breach],
   ];
   return (

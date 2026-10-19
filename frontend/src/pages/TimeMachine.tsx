@@ -14,6 +14,10 @@ const COLLECTIONS_METRICS: Metric[] = [
   { key: "overdue_balance", label: "tm.overdue", unit: "egp", better: "down" },
   { key: "dso_days", label: "tm.dso", unit: "days", better: "down" },
 ];
+const HOTEL_METRICS: Metric[] = [
+  { key: "occupancy_pct", label: "tm.occupancy", unit: "pct", better: "up" },
+  { key: "owner_net_return", label: "tm.ownerNet", unit: "egp", better: "up" },
+];
 const BASE_METRICS: Metric[] = [
   { key: "opex_monthly", label: "tm.opex", unit: "egp", better: "down" },
   { key: "revenue_monthly", label: "tm.revenue", unit: "egp", better: "up" },
@@ -29,8 +33,9 @@ const BASE_METRICS: Metric[] = [
 function Machine({ d, decisionId }: { d: any; decisionId: string }) {
   const { t, num, egp, pct, lang } = useI18n();
   const res = d.simulation.results;
-  // Collections decisions also track collections, the overdue book and DSO; show what the model produced.
-  const METRICS = [...COLLECTIONS_METRICS, ...BASE_METRICS].filter((m) => res.A?.trajectory?.[m.key]);
+  // Collections decisions also track collections, the overdue book and DSO, hotel decisions occupancy and the
+  // owner's net return; show what the model produced.
+  const METRICS = [...COLLECTIONS_METRICS, ...HOTEL_METRICS, ...BASE_METRICS].filter((m) => res.A?.trajectory?.[m.key]);
   const [month, setMonth] = useState(0);
   const [focus, setFocus] = useState<"A" | "B" | "C">((d.run.result.recommendation.recommended_strategy as "A" | "B" | "C") || "B");
   const [chartMetric, setChartMetric] = useState("cash_balance");

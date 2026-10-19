@@ -431,6 +431,12 @@ def run_full_simulation(
     include_sensitivity: bool = True,
     include_des: bool = True,
 ) -> dict[str, Any]:
+    if controls is not None and controls.domain == "hotel":
+        from . import hotel
+
+        hparams = params if params and any(p.key == "brand_occupancy_gain" for p in params) else None
+        return hotel.run_full_simulation(baseline or Baseline(), controls, config or SimulationConfig(), hparams,
+                                         None, include_sensitivity, include_des)
     if controls is not None and controls.domain == "collections":
         from . import collections
 

@@ -13,7 +13,7 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 | Capability | Status |
 |---|---|
 | Decision intake wizard (EN/AR question parser, confirm-every-field) | ✅ working |
-| Two decision models: **operating cost reduction** and **revenue collections improvement** (e.g. "what if we collect 30% more through a collection agency?"), each with its own futures, agents, collision rules, constraints and labels; the question picks the model | ✅ working |
+| Three decision models: **operating cost reduction**, **revenue collections improvement** (e.g. "what if we collect 30% more through a collection agency?") and **state-owned hotel asset utilisation** (e.g. "how do we get the most out of our 148-room hotel through different proposals?"), each with its own futures, agents, collision rules, constraints, policies and labels; the question picks the model | ✅ working |
 | 10 specialist agents + Chief Decision Orchestrator on **LangGraph** (parallel fan-out, retries, timeouts, cancellation, checkpointing) | ✅ working — rule-based reasoning by default, optional LLM narration (Anthropic / OpenAI / Ollama) |
 | Live Execution Room (real Server-Sent Events, React Flow graph) | ✅ working |
 | AI Agent Court (positions, evidence, Red Team objections, responses, verdict) | ✅ working |
@@ -78,6 +78,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
 | Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
 | Port Said demo voice-over | `ops\make-voiceover-collections.bat` | `ops/make-voiceover-collections.sh` | Adds the female voice to the Port Said Free Zone collection-agency demo video (see DEMO_SCRIPT.md) |
+| Hotel demo voice-over | `ops\make-voiceover-hotel.bat` | `ops/make-voiceover-hotel.sh` | Adds the female voice to the Arakan hotel demo video (see DEMO_SCRIPT.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
 

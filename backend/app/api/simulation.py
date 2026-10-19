@@ -41,7 +41,7 @@ class WhatIfIn(BaseModel):
 
 
 class CustomIn(BaseModel):
-    levers: dict[str, float]  # Levers (opex) or CollectionsLevers (collections), chosen by controls.domain
+    levers: dict[str, float]  # Levers (opex), CollectionsLevers (collections) or HotelLevers (hotel), chosen by controls.domain
     controls: DecisionControls = DecisionControls()
     dataset_version_id: str | None = None
     iterations: int = Field(1000, ge=100, le=20000)
@@ -67,12 +67,14 @@ def _model(db: Session, domain: str = "opex") -> tuple[SimulationModel, list[Unc
 @router.get("/model")
 def model_info(db: DB, user: Annotated[User, require("simulation.run")], domain: str = "opex") -> dict[str, Any]:
     from ..simulation.collections import CollectionsLevers
+    from ..simulation.hotel import HotelLevers
 
     m, params, econ = _model(db, domain)
+    schema = {"collections": CollectionsLevers, "hotel": HotelLevers}.get(domain, Levers)
     models = db.scalars(select(SimulationModel).order_by(SimulationModel.created_at.desc())).all()
     return {"production": row(m), "versions": [row(x, exclude=("parameters", "economics")) for x in models],
             "parameters": [p.model_dump() for p in params], "economics": econ.model_dump(),
-            "controls_schema": DecisionControls.model_json_schema(), "levers_schema": (CollectionsLevers if domain == "collections" else Levers).model_json_schema()}
+            "controls_schema": DecisionControls.model_json_schema(), "levers_schema": schema.model_json_schema()}
 
 
 @router.post("/run")
@@ -105,6 +107,20 @@ def custom_strategy(body: CustomIn, db: DB, user: Annotated[User, require("simul
     """Simulation Laboratory: evaluate an arbitrary lever combination."""
     dv = _dataset(db, user, body.dataset_version_id)
     _, params, econ = _model(db, body.controls.domain)
+    if body.controls.domain == "hotel":
+        from ..simulation import hotel as ht
+
+        try:
+            hl = ht.HotelLevers(**body.levers)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(422, f"Invalid levers: {exc}") from exc
+        prop = ht.HotelProposal(key="LAB", name_en="Custom proposal", name_ar="مقترح مخصص", tagline_en="", tagline_ar="",
+                                measures_en=[], measures_ar=[], levers=hl, proposed_by=["user"])
+        cfg = SimulationConfig(iterations=body.iterations, seed=body.seed)
+        theta = sample_parameters(params, body.iterations, body.seed)
+        r = ht.simulate_strategy(Baseline(**dv.data), body.controls, cfg, params, ht.HotelEconomics(), prop, theta)
+        r["meta"] = {"seed": body.seed, "iterations": body.iterations, "domain": "hotel"}
+        return r
     if body.controls.domain == "collections":
         from ..simulation import collections as col
 

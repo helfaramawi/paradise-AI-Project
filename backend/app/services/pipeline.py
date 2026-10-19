@@ -46,13 +46,18 @@ log = logging.getLogger("future_mirror.pipeline")
 
 
 def production_model(db: Session, domain: str = "opex") -> SimulationModel:
-    from ..simulation import collections
+    from ..simulation import collections, hotel
 
-    key = collections.MODEL_ID if domain == "collections" else MODEL_ID
+    key = collections.MODEL_ID if domain == "collections" else hotel.MODEL_ID if domain == "hotel" else MODEL_ID
     m = db.scalar(select(SimulationModel).where(SimulationModel.key == key, SimulationModel.status == "production")
                   .order_by(SimulationModel.created_at.desc()))
     if m is None:
-        if domain == "collections":
+        if domain == "hotel":
+            m = SimulationModel(key=key, version=hotel.MODEL_VERSION, status="production",
+                                description="State-owned hotel asset utilisation: monthly owner-economics model with Monte Carlo",
+                                parameters=[p.model_dump() for p in hotel.default_parameters()],
+                                economics=hotel.HotelEconomics().model_dump())
+        elif domain == "collections":
             m = SimulationModel(key=key, version=collections.MODEL_VERSION, status="production",
                                 description="Revenue collections improvement: monthly receivables-flow model with Monte Carlo",
                                 parameters=[p.model_dump() for p in collections.default_parameters()],

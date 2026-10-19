@@ -1,12 +1,18 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, ArrowRight, BadgeCheck, Building2, CalendarClock, Clock, Gauge, HandCoins, Landmark, MessageSquareWarning, ShieldCheck, Smile, Users, Wallet } from "lucide-react";
+import { Activity, ArrowRight, BadgeCheck, BedDouble, Building2, CalendarClock, Clock, Gauge, HandCoins, Hotel, Landmark, MessageSquareWarning, ShieldCheck, Smile, Tag, Users, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/app";
 import { useDossier, useResolvedDecisionId } from "@/lib/hooks";
 import { useDecisionDomain } from "@/components/DecisionGate";
 import { Badge, Button, Card, FUTURE_COLOR, FutureChip, PageHeader, Spinner, Stat, StatusBadge } from "@/components/ui";
+
+/** Hotel's annual result today, as in simulation/hotel.py: revenue (rooms + 30% F&B) less staff, fixed and variable costs. */
+function hotelNet(ds: any) {
+  const rev = ds.hotel_rooms * 365 * ds.hotel_occupancy_pct / 100 * ds.hotel_adr_egp / 1e6 * 1.3;
+  return rev - ds.hotel_staff_fte * 0.18 - ds.hotel_fixed_opex - 0.32 * rev;
+}
 
 export default function CommandCenter() {
   const { t, pick, egp, pct, num, date, prob, domain } = useI18n();
@@ -46,7 +52,17 @@ export default function CommandCenter() {
           <Stat label={t("cc.kpi.csat")} value={pct(ds.csat_pct, 0)} icon={Smile} />
         </div>
       )}
-      {ds && domain !== "collections" && (
+      {ds && domain === "hotel" && (
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Stat label={t("cc.kpi.rooms")} value={num(ds.hotel_rooms, 0)} icon={BedDouble} />
+          <Stat label={t("cc.kpi.occupancy")} value={pct(ds.hotel_occupancy_pct, 0)} icon={Gauge} />
+          <Stat label={t("cc.kpi.adr")} value={`${num(ds.hotel_adr_egp, 0)} ${pick("EGP", "جنيه")}`} icon={Tag} />
+          <Stat label={t("cc.kpi.hotelNet")} value={egp(hotelNet(ds), 1)} icon={Wallet} />
+          <Stat label={t("cc.kpi.hotelStaff")} value={num(ds.hotel_staff_fte, 0)} icon={Users} />
+          <Stat label={t("cc.kpi.assetValue")} value={egp(ds.hotel_asset_value, 0)} icon={Hotel} />
+        </div>
+      )}
+      {ds && domain === "opex" && (
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label={t("cc.kpi.opex")} value={egp(ds.annual_opex, 0)} icon={Wallet} />
           <Stat label={t("cc.kpi.revenue")} value={egp(ds.annual_revenue, 0)} icon={Building2} />

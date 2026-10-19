@@ -52,6 +52,16 @@ class Baseline(BaseModel):
     collections_team_fte: float = Field(6.0, gt=0)
     collections_team_utilization_pct: float = Field(82.0, ge=0, le=100)
     complaint_rate_pct: float = Field(3.0, ge=0, le=100, description="Customer complaints per 100 active accounts")
+    # State-owned hotel asset (assumptions; used by the hotel decision domain). Illustrative, not real figures.
+    hotel_rooms: int = Field(148, gt=0)
+    hotel_occupancy_pct: float = Field(34.0, ge=0, le=100, description="Average annual room occupancy")
+    hotel_adr_egp: float = Field(1600.0, gt=0, description="Average daily room rate, EGP")
+    hotel_staff_fte: float = Field(120.0, gt=0)
+    hotel_staff_utilization_pct: float = Field(58.0, ge=0, le=100)
+    hotel_fixed_opex: float = Field(10.0, ge=0, description="Utilities, maintenance, insurance, admin, EGP M / year")
+    hotel_guest_score_pct: float = Field(66.0, ge=0, le=100, description="Average guest review score")
+    hotel_asset_value: float = Field(420.0, gt=0, description="Indicative market value of the hotel, EGP M")
+    hotel_capex_reserve: float = Field(40.0, description="Funds allocated to the hotel, EGP M")
 
     @property
     def cost_categories(self) -> dict[str, float]:
@@ -104,6 +114,15 @@ BASELINE_PROVENANCE: dict[str, Provenance] = {
     "collections_team_fte": "synthetic_assumption",
     "collections_team_utilization_pct": "synthetic_assumption",
     "complaint_rate_pct": "synthetic_assumption",
+    "hotel_rooms": "synthetic_assumption",
+    "hotel_occupancy_pct": "synthetic_assumption",
+    "hotel_adr_egp": "synthetic_assumption",
+    "hotel_staff_fte": "synthetic_assumption",
+    "hotel_staff_utilization_pct": "synthetic_assumption",
+    "hotel_fixed_opex": "synthetic_assumption",
+    "hotel_guest_score_pct": "synthetic_assumption",
+    "hotel_asset_value": "synthetic_assumption",
+    "hotel_capex_reserve": "synthetic_assumption",
 }
 
 
@@ -242,18 +261,20 @@ class LeverEconomics(BaseModel):
 class DecisionControls(BaseModel):
     """Executive sliders. Changing any of these triggers recalculation.
 
-    domain selects the decision model: "opex" (operating cost reduction) or "collections" (revenue
-    collections improvement). In the collections domain cost_reduction_target_pct is the collections
-    uplift target and acceptable_delay_increase_pct the acceptable rise in the complaint rate.
+    domain selects the decision model: "opex" (operating cost reduction), "collections" (revenue
+    collections improvement) or "hotel" (getting the most out of a state-owned hotel). In the collections
+    domain cost_reduction_target_pct is the collections uplift target and acceptable_delay_increase_pct the
+    acceptable rise in the complaint rate; in the hotel domain they are the target annual return (% of the
+    asset value) and the largest acceptable share of rooms out of service.
     """
 
-    domain: Literal["opex", "collections"] = "opex"
+    domain: Literal["opex", "collections", "hotel"] = "opex"
     cost_reduction_target_pct: float = Field(20.0, ge=1, le=60)
     implementation_months: int = Field(6, ge=2, le=18)
     no_terminations: bool = True
     max_utilization_pct: float = Field(85.0, ge=60, le=100)
     automation_investment: float = Field(6.0, ge=0, le=30)
-    acceptable_delay_increase_pct: float = Field(2.0, ge=0, le=20)
+    acceptable_delay_increase_pct: float = Field(2.0, ge=0, le=100)
     min_csat_pct: float = Field(85.0, ge=0, le=100)
     risk_tolerance: Literal["low", "medium", "high"] = "medium"
     implementation_budget: float = Field(12.0, ge=0, le=100, description="EGP M cap")

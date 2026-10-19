@@ -24,7 +24,7 @@ from ..models import (
 from ..security import require
 from ..services.audit import audit
 from ..services.dossier import build_dossier, get_decision, latest_run, row
-from ..services.feedback import METRICS, METRICS_COLLECTIONS, calibration_summary, propose_calibration, recompute, synthetic_actuals
+from ..services.feedback import METRICS, METRICS_COLLECTIONS, METRICS_HOTEL, calibration_summary, propose_calibration, recompute, synthetic_actuals
 from ..services.reports import build_excel, build_pdf
 
 router = APIRouter(tags=["operations"])
@@ -79,7 +79,7 @@ def outcomes(decision_id: str, db: DB, user: Annotated[User, require("decision.r
                       .order_by(ActualOutcome.month, ActualOutcome.metric)).all()
     comps = db.scalars(select(ForecastComparison).where(ForecastComparison.decision_id == d.id)
                        .order_by(ForecastComparison.month)).all()
-    names = METRICS_COLLECTIONS if (d.controls or {}).get("domain") == "collections" else METRICS
+    names = {"collections": METRICS_COLLECTIONS, "hotel": METRICS_HOTEL}.get((d.controls or {}).get("domain"), METRICS)
     return {"metrics": {k: {"en": v[0], "ar": v[1]} for k, v in names.items()},
             "actuals": [row(a) for a in acts], "comparisons": [row(c) for c in comps],
             "calibration": calibration_summary(list(comps)),

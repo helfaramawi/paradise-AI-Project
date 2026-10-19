@@ -43,6 +43,16 @@ METRICS_COLLECTIONS = {
     "delay_pct": ("Customer complaint rate (%)", "معدل شكاوى العملاء"),
     "utilization_pct": ("Collections team utilisation (%)", "استغلال فريق التحصيل"),
 }
+# Same metric keys, named for the hotel domain (see simulation/hotel.py).
+METRICS_HOTEL = {
+    **METRICS,
+    "opex_monthly": ("Owner's monthly hotel costs (EGP M)", "تكاليف الفندق الشهرية على الجهاز"),
+    "revenue_monthly": ("Owner's monthly revenue from the asset (EGP M)", "إيراد الجهاز الشهري من الأصل"),
+    "savings_run_rate": ("Improvement in annual net return (EGP M/yr)", "تحسن العائد الصافي السنوي"),
+    "delay_pct": ("Rooms out of service (%)", "الغرف خارج الخدمة"),
+    "utilization_pct": ("Hotel staff utilisation (%)", "استغلال العاملين بالفندق"),
+    "csat_pct": ("Guest score (%)", "تقييم النزلاء"),
+}
 
 
 def tracked_scenario(db: Session, decision: Decision) -> tuple[str, SimulationRun]:
