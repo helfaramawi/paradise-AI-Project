@@ -31,6 +31,7 @@ def strategy_context(
     # required revision in the recommendation; only strategy-specific critical collisions block approval.
     crit = [c for c in collisions if c.get("strategy_key") == k and c.get("severity") == "critical"]
     collections = controls.get("domain") == "collections"  # there the "delay" metric is the complaint rate
+    hotel = controls.get("domain") == "hotel"  # capital works are governed by GOV-018, not the GOV-012 spend cap
     return {
         "action": {
             "type": "strategy.approve",
@@ -48,7 +49,8 @@ def strategy_context(
             "peak_utilization_pct": s["peak_utilization_pct"]["p50"],
             "hard_constraints_violated": future["hard_constraints_violated"],
             "critical_collisions": len(crit),
-            "implementation_cost_p90": s["one_off_implementation_cost"]["p90"],
+            "implementation_cost_p90": 0.0 if hotel else s["one_off_implementation_cost"]["p90"],
+            "capital_investment_p90": s["one_off_implementation_cost"]["p90"] if hotel else 0.0,
         },
         "dataset": {"has_errors": dataset_has_errors},
         "platform": {"external_actions_enabled": get_settings().external_actions_enabled},

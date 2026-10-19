@@ -31,7 +31,7 @@ from ..simulation.assumptions import (
 from ..simulation.engine import run_full_simulation
 from ..simulation.futures import build_futures
 from ..simulation.validation import ValidationReport, validate_baseline
-from . import collections_agents, domain
+from . import collections_agents, domain, hotel_agents
 from .base import AGENT_CATALOG, AgentContext, Evidence, Finding, Objection
 from .collision import detect_collisions, risk_register
 from .court import governance_findings, redteam_challenge, respond
@@ -107,7 +107,7 @@ def _ctx(state: PipelineState) -> AgentContext:
 
 
 class _OpexRules:
-    """The cost-reduction domain's agents and court/collision rules (the collections domain has its own)."""
+    """The cost-reduction domain's agents and court/collision rules (collections and hotel have their own)."""
 
     PHASE1, PHASE2 = domain.PHASE1, domain.PHASE2
     redteam_challenge, respond = staticmethod(redteam_challenge), staticmethod(respond)
@@ -119,7 +119,8 @@ class _OpexRules:
 
 
 def rules_for(state: PipelineState):
-    return collections_agents if (state.get("controls") or {}).get("domain") == "collections" else _OpexRules
+    d = (state.get("controls") or {}).get("domain")
+    return collections_agents if d == "collections" else hotel_agents if d == "hotel" else _OpexRules
 
 
 def build_graph(rt: Runtime):

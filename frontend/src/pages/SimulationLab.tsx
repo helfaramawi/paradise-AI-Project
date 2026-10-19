@@ -3,12 +3,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, FlaskConical, Play } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/app";
-import { DEFAULT_CONTROLS, ControlsForm, type Controls } from "@/components/Controls";
+import { ControlsForm, controlsFor, type Controls } from "@/components/Controls";
 import { FanChart, Histogram, Tornado } from "@/components/charts";
 import { Badge, Button, Card, ErrorBox, PageHeader, SliderField, Stat, Tabs } from "@/components/ui";
 import type { DictKey } from "@/i18n/dict";
+import { DOMAINS, type Domain } from "@/i18n/domains";
 
-type Domain = "opex" | "collections";
 // Lever sets and starting values per decision model; money levers are EGP M, the rest 0..1 intensities.
 const LEVERS: Record<Domain, { start: Record<string, number>; money: Record<string, number> }> = {
   opex: {
@@ -21,19 +21,24 @@ const LEVERS: Record<Domain, { start: Record<string, number>; money: Record<stri
       team_reallocation: 0.5, workforce_termination: 0 },
     money: { digital_collections: 10 },
   },
+  hotel: {
+    start: { lease_to_operator: 0, brand_management: 0, renovation_capex: 12, serviced_apartments: 1, business_center: 1,
+      digital_distribution: 1, workforce_termination: 0 },
+    money: { renovation_capex: 100 },
+  },
 };
 
 export default function SimulationLab() {
   const { t, pick, egp, pct, num, prob, domain, setDomain } = useI18n();
   const [levers, setLevers] = useState<Record<string, number>>(LEVERS[domain].start);
-  const [controls, setControls] = useState<Controls>({ ...DEFAULT_CONTROLS, domain, cost_reduction_target_pct: domain === "collections" ? 30 : 20 });
+  const [controls, setControls] = useState<Controls>(controlsFor(domain));
   const [iterations, setIterations] = useState(2000);
   const model = useQuery({ queryKey: ["model", domain], queryFn: () => api(`/simulation/model?domain=${domain}`) });
   const run = useMutation({ mutationFn: () => api("/simulation/custom", { method: "POST", json: { levers, controls, iterations } }) });
   const switchDomain = (d: Domain) => {
     setDomain(d);
     setLevers(LEVERS[d].start);
-    setControls({ ...DEFAULT_CONTROLS, domain: d, cost_reduction_target_pct: d === "collections" ? 30 : 20 });
+    setControls(controlsFor(d));
     run.reset();
   };
   const r: any = run.data;
@@ -45,7 +50,7 @@ export default function SimulationLab() {
           <Card title={t("lab.levers")}>
             <div className="space-y-4">
               <Tabs value={domain} onChange={(v) => switchDomain(v as Domain)}
-                items={(["opex", "collections"] as const).map((d) => ({ value: d, label: t(`dom.${d}` as DictKey) }))} />
+                items={DOMAINS.map((d) => ({ value: d, label: t(`dom.${d}` as DictKey) }))} />
               {Object.keys(LEVERS[domain].start).map((k) => {
                 const money = LEVERS[domain].money[k];
                 return (
@@ -86,7 +91,7 @@ export default function SimulationLab() {
                 <Card title={t("lab.tornado")}><Tornado rows={r.sensitivity} base={r.sensitivity[0]?.base_net_benefit ?? 0} /></Card>
                 <Card title={t("lab.hist")}><Histogram counts={r.net_benefit_histogram.counts} edges={r.net_benefit_histogram.edges} /></Card>
               </div>
-              <Card title={t("lab.des")} subtitle={r.project_portfolio.kind === "debtor_segments" ? r.project_portfolio.method
+              <Card title={t("lab.des")} subtitle={r.project_portfolio.kind ? r.project_portfolio.method
                 : `${r.project_portfolio.method} · capacity ${num(r.project_portfolio.baseline_capacity_fte)} → ${num(r.project_portfolio.scenario_capacity_fte)} FTE`}>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9">
                   {r.project_portfolio.projects.map((p: any) => (

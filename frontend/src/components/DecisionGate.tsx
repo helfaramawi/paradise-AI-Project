@@ -40,10 +40,11 @@ export function ExportButtons({ decisionId }: { decisionId: string }) {
   );
 }
 
-/** Switches the labels to the decision model (cost or collections) of the dossier on screen. */
+/** Switches the labels to the decision model (cost, collections or hotel) of the dossier on screen. */
 export function useDecisionDomain(dossier: Dossier | undefined) {
   const { setDomain } = useI18n();
-  const domain = dossier?.decision?.controls?.domain === "collections" ? "collections" : "opex";
+  const d = dossier?.decision?.controls?.domain;
+  const domain = d === "collections" || d === "hotel" ? d : "opex";
   useEffect(() => {
     if (dossier) setDomain(domain);
   }, [dossier, domain, setDomain]);

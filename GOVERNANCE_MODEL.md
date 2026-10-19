@@ -28,6 +28,12 @@
 | GOV-012 | deny | | P90 implementation cost > EGP 20M hard cap |
 | GOV-013 | deny | ✔ | separation of duties (procedural: requester ≠ approver; one approver, one role) |
 | GOV-014 | deny | ✔ | live consequential automation unless external actions are enabled **and** the decision is approved |
+| GOV-015 | require Legal | | collections: receivables placed with an agency (customer data shared with a third party) |
+| GOV-016 | deny | | collections: aggressive collection tactics (fair collection) |
+| GOV-017 | require Legal + HR + CEO | | hotel: long-term lease or usufruct of a state-owned asset (public tender under Law 182 of 2018, staff transfer plan) |
+| GOV-018 | require CFO + CEO | | hotel: capital investment above EGP 50M (P90) in a state-owned asset (independent feasibility study) |
+
+In the hotel model, capital works are governed by GOV-018 rather than by the GOV-012 implementation-spend cap.
 
 Locked policies cannot be disabled or edited through the API (HTTP 403, tested). Unlocked ones can be toggled by `governance.manage`. Every change bumps the version and is audited.
 

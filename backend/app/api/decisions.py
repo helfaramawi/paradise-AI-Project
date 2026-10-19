@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..agents.intake import objectives_and_constraints, parse_decision, sanitize
+from ..agents.intake import HOTEL_CONTROL_DEFAULTS, objectives_and_constraints, parse_decision, sanitize
 from ..db import SessionLocal, get_db
 from ..models import (
     Decision,
@@ -38,6 +38,10 @@ DEMO_QUESTION = (
 )
 
 
+# Controls the intake parser may fill from the question (domain defaults included).
+INTAKE_CONTROL_KEYS = ("domain", "cost_reduction_target_pct", "implementation_months", *HOTEL_CONTROL_DEFAULTS)
+
+
 class ParseIn(BaseModel):
     question: str = Field(min_length=10, max_length=4000)
 
@@ -61,11 +65,11 @@ class RunIn(BaseModel):
 def parse(body: ParseIn, user: Annotated[User, require("decision.create")]) -> dict[str, Any]:
     p = parse_decision(body.question)
     c = DecisionControls()
-    controls = c.model_copy(update={k: p[k] for k in ("domain", "cost_reduction_target_pct", "implementation_months") if k in p})
+    controls = c.model_copy(update={k: p[k] for k in INTAKE_CONTROL_KEYS if k in p})
     if p.get("no_terminations") is not None:
         controls = controls.model_copy(update={"no_terminations": bool(p.get("no_terminations"))})
     return {"parsed": p, "suggested_controls": controls.model_dump(),
-            "supported": p["category"] in ("opex_optimization", "collections_improvement"),
+            "supported": p["category"] in ("opex_optimization", "collections_improvement", "asset_utilization"),
             "note_en": "Interpretation produced by a deterministic intake parser. Please confirm every field.",
             "note_ar": "التفسير ناتج عن محلل إدخال قائم على القواعد. يرجى تأكيد كل حقل."}
 
@@ -106,7 +110,7 @@ def create_decision(body: DecisionIn, db: DB, user: Annotated[User, require("dec
     intake = parse_decision(question)
     controls = {**body.controls.model_dump(), "seed": body.seed, "iterations": body.iterations}
     # Values read from the question fill any control the caller did not set explicitly.
-    for key in ("domain", "cost_reduction_target_pct", "implementation_months"):
+    for key in INTAKE_CONTROL_KEYS:
         if key not in body.controls.model_fields_set and intake.get(key) is not None:
             controls[key] = intake[key]
     d = Decision(tenant_id=user.tenant_id, title=sanitize(body.title), question=question, language=body.language,

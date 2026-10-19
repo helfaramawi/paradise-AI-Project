@@ -100,8 +100,8 @@ def build_recommendation(
             options.append(r)
 
     c: DecisionControls = ctx.controls
-    tol_en, tol_ar = (("complaint tolerance", "حد الشكاوى") if c.domain == "collections"
-                      else ("delivery tolerance", "حد التأخير"))
+    tol_en, tol_ar = {"collections": ("complaint tolerance", "حد الشكاوى"),
+                      "hotel": ("rooms-out-of-service limit", "حد الغرف خارج الخدمة")}.get(c.domain, ("delivery tolerance", "حد التأخير"))
     if per[best]["status"] == "acceptable":
         headline_en = f"Recommended for approval review: {_fe(best)} satisfies all hard constraints at the {c.risk_tolerance} risk tolerance."
         headline_ar = f"موصى به للمراجعة والاعتماد: {_fa(best)} يستوفي جميع القيود الإلزامية عند مستوى المخاطرة المختار."
@@ -135,6 +135,10 @@ def build_recommendation(
         from .collections_agents import NEXT_STEPS, ROADMAP
 
         next_steps, roadmap = NEXT_STEPS, ROADMAP
+    elif c.domain == "hotel":
+        from .hotel_agents import NEXT_STEPS as HN, ROADMAP as HR
+
+        next_steps, roadmap = HN, HR
     return {
         "recommended_strategy": best if per[best]["status"] != "not_acceptable" else None,
         "status": per[best]["status"],

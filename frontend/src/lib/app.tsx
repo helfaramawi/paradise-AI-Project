@@ -34,7 +34,10 @@ const I18nCtx = createContext<I18n>(null as unknown as I18n);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>((store("fm_lang") as Lang) || "en");
-  const [domain, setDomainState] = useState<Domain>(store("fm_domain") === "collections" ? "collections" : "opex");
+  const [domain, setDomainState] = useState<Domain>(() => {
+    const d = store("fm_domain");
+    return d === "collections" || d === "hotel" ? d : "opex";
+  });
   const setDomain = useCallback((d: Domain) => {
     store("fm_domain", d);
     setDomainState(d);

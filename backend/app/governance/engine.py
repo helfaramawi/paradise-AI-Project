@@ -274,4 +274,28 @@ DEFAULT_POLICIES: list[dict[str, Any]] = [
                  "message_en": "Blocked: aggressive collection practices violate the fair-collection policy.",
                  "message_ar": "مرفوض: أساليب التحصيل الحادة تخالف سياسة التحصيل العادل."},
     },
+    {
+        "code": "GOV-017", "effect": "require_approval",
+        "name_en": "Long-term use of a state-owned asset", "name_ar": "الانتفاع طويل الأجل بأصل مملوك للدولة",
+        "description_en": "Leasing or granting usufruct of a state-owned asset for more than 3 years requires a public tender "
+                          "under the Public Contracts Law (Law 182 of 2018), an independent valuation, Legal review, a staff "
+                          "transfer plan reviewed by HR and approval by the CEO.",
+        "description_ar": "تأجير أصل مملوك للدولة أو منح حق انتفاع به لأكثر من 3 سنوات يتطلب مناقصة عامة وفق قانون التعاقدات "
+                          "العامة (القانون 182 لسنة 2018) وتقييماً مستقلاً ومراجعة قانونية وخطة لنقل العاملين تراجعها الموارد "
+                          "البشرية وموافقة الرئيس التنفيذي.",
+        "rule": {"when": _c("action.levers.lease_to_operator", "gt", 0), "roles": ["legal", "hr", "ceo"],
+                 "message_en": "A long-term lease of a state-owned asset requires a public tender, Legal, HR and CEO approval.",
+                 "message_ar": "التأجير طويل الأجل لأصل مملوك للدولة يتطلب مناقصة عامة وموافقة القانونية والموارد البشرية والرئيس التنفيذي."},
+    },
+    {
+        "code": "GOV-018", "effect": "require_approval",
+        "name_en": "Capital investment in a state-owned asset", "name_ar": "الاستثمار الرأسمالي في أصل مملوك للدولة",
+        "description_en": "Capital investment above EGP 50M (P90) in a state-owned asset requires an independent feasibility "
+                          "study and CFO and CEO approval.",
+        "description_ar": "الاستثمار الرأسمالي فوق 50 مليون جنيه (P90) في أصل مملوك للدولة يتطلب دراسة جدوى مستقلة وموافقة "
+                          "المدير المالي والرئيس التنفيذي.",
+        "rule": {"when": _c("analysis.capital_investment_p90", "gt", 50.0), "roles": ["cfo", "ceo"],
+                 "message_en": "Capital investment above EGP 50M requires a feasibility study and CFO and CEO approval.",
+                 "message_ar": "الاستثمار فوق 50 مليون جنيه يتطلب دراسة جدوى وموافقة المدير المالي والرئيس التنفيذي."},
+    },
 ]

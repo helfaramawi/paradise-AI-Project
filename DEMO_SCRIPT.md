@@ -107,3 +107,31 @@ The outputs are `future-mirror-demo-collections.mp4`, `future-mirror-demo-collec
 - **macOS/Linux:** run `ops/make-voiceover-collections.sh [voice]`.
 - **Background music:** works exactly as above.
 - **Other voices or videos:** `make-voiceover.bat <male|female|voice> <video name>` voices any video with any voice.
+
+## Port Said Free Zone demo: the Arakan hotel question
+
+`frontend/e2e/video/record-demo-hotel.mjs` records a third demo of the same length, also set at the Executive Authority of the Port Said Free Zone. It types and analyses the question «الاستفادة القصوى من فندق أراكان (148 غرفة) بوسط البلد ببورسعيد، المملوك للجهاز التنفيذي للمنطقة الحرة بمحافظة بورسعيد، من خلال مقترحات مختلفة», which runs on the **state-owned hotel asset** decision model. The question states no number, so the intake proposes a reference target (a 6% net annual return on the asset value) for the user to confirm or change.
+
+The video covers the same 16 chapters with the hotel results:
+
+- **A. Long-term lease to a private operator:** steady rent with no investment (about 3% return). It closes the hotel during refurbishment and leaves about 48 employees without work, more than the Authority can redeploy. Governance denies it because of the unresolved critical collision, and a lease also needs a public tender (GOV-017).
+- **B. Full renovation with a hotel brand:** the highest return once stabilised (about 8%). It needs about EGP 85M, twice the capital budget, so it requires CFO and CEO approval (GOV-018).
+- **C. Mixed-use repositioning for the Free Zone:** serviced apartments for investors, an investor business centre and a refreshed 108-room hotel. It costs about EGP 30M (within budget), keeps every employee and pays back in about 1.5 years. This is the recommended proposal.
+- No proposal reaches 6% within 12 months: works and ramp-up take time, so the platform also reports the stabilised return.
+
+The captions are in Modern Standard Arabic with full diacritics, and the narration says the figures are illustrative.
+
+```bash
+cd frontend
+BASE_URL=http://localhost:8080 OUT_DIR=../docs/video node e2e/video/record-demo-hotel.mjs
+```
+
+The outputs are `future-mirror-demo-hotel.mp4`, `future-mirror-demo-hotel.srt` and `chapters-hotel.txt`. Use a fresh database.
+
+**Voice-over:**
+
+- **Windows:** put both files in `docs\video` and double-click `ops\make-voiceover-hotel.bat` (female voice `ar-EG-SalmaNeural`, 10% faster). The output is `docs\video\future-mirror-demo-hotel-voice.mp4`.
+- **Another female voice:** `ops\make-voiceover-hotel.bat ar-SA-ZariyahNeural`.
+- **macOS/Linux:** `ops/make-voiceover-hotel.sh [voice]`.
+- Speed, refused lines and background music work exactly as for the collection-agency demo above.
+

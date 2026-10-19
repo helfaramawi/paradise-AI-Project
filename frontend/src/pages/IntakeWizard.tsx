@@ -26,12 +26,15 @@ export default function IntakeWizard() {
     onSuccess: (r: any) => {
       setParsed(r);
       setControls(pickControls(r.suggested_controls));
-      const collections = r.suggested_controls.domain === "collections";
-      setDomain(collections ? "collections" : "opex");
+      const domain = r.suggested_controls.domain as Controls["domain"];
+      setDomain(domain);
       if (!title) {
-        setTitle(collections
+        const name = r.parsed.asset_name ? ` ${r.parsed.asset_name}` : "";
+        setTitle(domain === "collections"
           ? lang === "ar" ? "زيادة المتحصلات عبر شركة تحصيل" : "Higher collections through a collection agency"
-          : lang === "ar" ? "خفض التكاليف التشغيلية دون إنهاء خدمة" : "Operating cost reduction without terminations");
+          : domain === "hotel"
+            ? lang === "ar" ? `تعظيم الاستفادة من فندق${name}` : `Getting the most out of the${name} hotel`
+            : lang === "ar" ? "خفض التكاليف التشغيلية دون إنهاء خدمة" : "Operating cost reduction without terminations");
       }
       setStep(1);
     },
@@ -89,6 +92,8 @@ export default function IntakeWizard() {
                   ["in.duration", parsed.parsed.implementation_months != null ? `${parsed.parsed.implementation_months} ${t("months")}` : "—"],
                   parsed.parsed.domain === "collections"
                     ? ["lever.agency_placement", parsed.parsed.mentions_agency ? "✓" : "—"]
+                    : parsed.parsed.domain === "hotel"
+                    ? ["cc.kpi.rooms", parsed.parsed.hotel_rooms != null ? String(parsed.parsed.hotel_rooms) : "—"]
                     : ["cc.kpi.opex", parsed.parsed.annual_opex != null ? egp(parsed.parsed.annual_opex, 0) : "—"],
                   ["in.noTerm", parsed.parsed.no_terminations ? "✓" : "—"]].map(([k, v]) => (
                   <div key={k} className="rounded-xl border border-line p-3">

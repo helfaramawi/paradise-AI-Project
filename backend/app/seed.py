@@ -161,5 +161,6 @@ def seed_all(db: Session) -> None:
     seed_agents(db)
     production_model(db)
     production_model(db, "collections")
+    production_model(db, "hotel")
     seed_tenant(db)
     sync_policies(db)
