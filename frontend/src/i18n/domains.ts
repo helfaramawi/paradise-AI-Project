@@ -1,0 +1,65 @@
+import type { DictKey, Lang } from "./dict";
+
+export type Domain = "opex" | "collections";
+
+/** Labels that change meaning with the decision model. The simulation keeps generic metric keys
+ * (e.g. "savings" = extra collections, "delay" = complaint rate in the collections model), so the
+ * same screens read correctly for either kind of decision. */
+export const DOMAIN_OVERRIDES: Record<Exclude<Domain, "opex">, Record<Lang, Partial<Record<DictKey, string>>>> = {
+  collections: {
+    en: {
+      "in.target": "Collections uplift target",
+      "in.delay": "Acceptable complaint-rate increase",
+      "in.automation": "Digital collections budget (Futures B and C)",
+      "in.maxUtil": "Maximum collections-team utilisation",
+      "fu.savings": "Extra collections a year at deadline",
+      "fu.savingsPct": "Collections uplift at deadline",
+      "fu.net": "12-month net cash benefit",
+      "fu.delay": "Complaint-rate increase",
+      "fu.workforce": "Peak collections-team utilisation",
+      "fu.risk": "Relationship value at risk (P90)",
+      "fu.projects": "Client segments at risk",
+      "fu.savingsPath": "Extra collections run-rate (median with P10–P90 band)",
+      "tm.opex": "Monthly operating cost incl. fees",
+      "tm.revenue": "Monthly billing",
+      "tm.cashflow": "Monthly cash flow (collections − costs)",
+      "tm.delay": "Customer complaint rate",
+      "tm.util": "Collections-team utilisation",
+      "tm.savings": "Extra collections run-rate",
+      "tm.exposure": "Relationship & regulatory exposure (annualised)",
+      "lab.des": "Debtor segments: months to clear each overdue balance",
+      "fin.opex": "Monthly operating cost incl. agency fees",
+      "fin.realized": "Extra cash collected",
+      "fin.impl": "Fees, discounts & implementation",
+      "fin.delivery": "Relationship losses",
+      "fin.net": "Net cash benefit",
+    },
+    ar: {
+      "in.target": "نسبة زيادة المتحصلات المستهدفة",
+      "in.delay": "الزيادة المقبولة في معدل الشكاوى",
+      "in.automation": "ميزانية التحصيل الرقمي (المستقبلان ب وج)",
+      "in.maxUtil": "أقصى استغلال لفريق التحصيل",
+      "fu.savings": "المتحصلات الإضافية سنوياً في الموعد",
+      "fu.savingsPct": "زيادة المتحصلات في الموعد",
+      "fu.net": "صافي المنفعة النقدية خلال 12 شهراً",
+      "fu.delay": "زيادة معدل الشكاوى",
+      "fu.workforce": "أقصى استغلال لفريق التحصيل",
+      "fu.risk": "قيمة العلاقات المعرضة للخطر (P90)",
+      "fu.projects": "شرائح عملاء معرضة للخطر",
+      "fu.savingsPath": "معدل المتحصلات الإضافية (الوسيط مع نطاق P10–P90)",
+      "tm.opex": "التكلفة التشغيلية الشهرية شاملة العمولات",
+      "tm.revenue": "الفوترة الشهرية",
+      "tm.cashflow": "التدفق النقدي الشهري (المتحصلات − التكاليف)",
+      "tm.delay": "معدل شكاوى العملاء",
+      "tm.util": "استغلال فريق التحصيل",
+      "tm.savings": "معدل المتحصلات الإضافية",
+      "tm.exposure": "التعرض للمخاطر في العلاقات واللوائح (سنوياً)",
+      "lab.des": "شرائح المدينين: عدد الأشهر لتحصيل كل رصيد متأخر",
+      "fin.opex": "التكلفة التشغيلية الشهرية شاملة عمولات التحصيل",
+      "fin.realized": "النقد الإضافي المحصّل",
+      "fin.impl": "العمولات والخصومات وتكلفة التنفيذ",
+      "fin.delivery": "خسائر العلاقات مع العملاء",
+      "fin.net": "صافي المنفعة النقدية",
+    },
+  },
+};

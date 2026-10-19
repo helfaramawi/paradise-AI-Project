@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { download } from "@/lib/api";
@@ -40,11 +40,21 @@ export function ExportButtons({ decisionId }: { decisionId: string }) {
   );
 }
 
+/** Switches the labels to the decision model (cost or collections) of the dossier on screen. */
+export function useDecisionDomain(dossier: Dossier | undefined) {
+  const { setDomain } = useI18n();
+  const domain = dossier?.decision?.controls?.domain === "collections" ? "collections" : "opex";
+  useEffect(() => {
+    if (dossier) setDomain(domain);
+  }, [dossier, domain, setDomain]);
+}
+
 /** Loads the active decision's latest completed dossier, or explains what to do. */
 export function DecisionGate({ children, requireRun = true }: { children: (d: Dossier, decisionId: string) => ReactNode; requireRun?: boolean }) {
   const { t } = useI18n();
   const id = useResolvedDecisionId();
   const { data, isLoading, error } = useDossier(id);
+  useDecisionDomain(data);
   const { isLoading: listLoading } = useDecisions();
   if (listLoading || isLoading) return <Spinner />;
   if (error) return <ErrorBox error={error} />;

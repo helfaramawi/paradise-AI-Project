@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { dictionaries, type DictKey, type Lang } from "@/i18n/dict";
+import { DOMAIN_OVERRIDES, type Domain } from "@/i18n/domains";
 import { api, getToken, setToken } from "./api";
 
 function store(key: string, value?: string): string | null {
@@ -17,6 +18,9 @@ type I18n = {
   lang: Lang;
   dir: "ltr" | "rtl";
   setLang: (l: Lang) => void;
+  /** Decision model of the decision on screen; labels follow it (see i18n/domains.ts). */
+  domain: Domain;
+  setDomain: (d: Domain) => void;
   t: (k: DictKey) => string;
   pick: (en?: string | null, ar?: string | null) => string;
   num: (v: number | null | undefined, digits?: number) => string;
@@ -30,6 +34,11 @@ const I18nCtx = createContext<I18n>(null as unknown as I18n);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>((store("fm_lang") as Lang) || "en");
+  const [domain, setDomainState] = useState<Domain>(store("fm_domain") === "collections" ? "collections" : "opex");
+  const setDomain = useCallback((d: Domain) => {
+    store("fm_domain", d);
+    setDomainState(d);
+  }, []);
   const dir = lang === "ar" ? "rtl" : "ltr";
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -43,11 +52,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const locale = lang === "ar" ? "ar-EG" : "en-US";
     const nf = (d: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: d, maximumFractionDigits: d });
     const ok = (v: number | null | undefined): v is number => typeof v === "number" && Number.isFinite(v);
+    const over = domain === "opex" ? undefined : DOMAIN_OVERRIDES[domain];
     return {
       lang,
       dir,
       setLang,
-      t: (k) => dictionaries[lang][k] ?? dictionaries.en[k] ?? k,
+      domain,
+      setDomain,
+      t: (k) => over?.[lang][k] ?? over?.en[k] ?? dictionaries[lang][k] ?? dictionaries.en[k] ?? k,
       pick: (e, a) => (lang === "ar" ? a || e || "" : e || a || ""),
       num: (v, d = 1) => (ok(v) ? nf(d).format(v) : "—"),
       egp: (v, d = 1) => (ok(v) ? `${nf(d).format(v)} ${lang === "ar" ? "مليون ج.م" : "EGP M"}` : "—"),
@@ -60,7 +72,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
             )
           : "—",
     };
-  }, [lang, dir, setLang]);
+  }, [lang, dir, setLang, domain, setDomain]);
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;
 }
 

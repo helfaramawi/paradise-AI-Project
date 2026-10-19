@@ -43,6 +43,15 @@ class Baseline(BaseModel):
     contractual_delay_tolerance_pct: float = Field(10.0, ge=0)
     opening_cash: float = Field(25.0)
     training_share_of_other_ga: float = Field(0.25, ge=0, le=1)
+    # Receivables and collections (assumptions; used by the collections decision domain).
+    overdue_receivables: float = Field(32.0, ge=0, description="Overdue receivables (31+ days), EGP M")
+    ontime_collection_rate_pct: float = Field(86.0, ge=0, le=100, description="Share of billing collected within terms")
+    inhouse_recovery_rate_pct: float = Field(3.5, ge=0, le=100, description="Overdue balance recovered in-house per month")
+    writeoff_rate_pct: float = Field(0.8, ge=0, le=100, description="Overdue balance written off per month")
+    key_account_overdue_share_pct: float = Field(45.0, ge=0, le=100, description="Overdue owed by key/government accounts")
+    collections_team_fte: float = Field(6.0, gt=0)
+    collections_team_utilization_pct: float = Field(82.0, ge=0, le=100)
+    complaint_rate_pct: float = Field(3.0, ge=0, le=100, description="Customer complaints per 100 active accounts")
 
     @property
     def cost_categories(self) -> dict[str, float]:
@@ -87,6 +96,14 @@ BASELINE_PROVENANCE: dict[str, Provenance] = {
     "contractual_delay_tolerance_pct": "synthetic_assumption",
     "opening_cash": "synthetic_assumption",
     "training_share_of_other_ga": "synthetic_assumption",
+    "overdue_receivables": "synthetic_assumption",
+    "ontime_collection_rate_pct": "synthetic_assumption",
+    "inhouse_recovery_rate_pct": "synthetic_assumption",
+    "writeoff_rate_pct": "synthetic_assumption",
+    "key_account_overdue_share_pct": "synthetic_assumption",
+    "collections_team_fte": "synthetic_assumption",
+    "collections_team_utilization_pct": "synthetic_assumption",
+    "complaint_rate_pct": "synthetic_assumption",
 }
 
 
@@ -223,8 +240,14 @@ class LeverEconomics(BaseModel):
 
 
 class DecisionControls(BaseModel):
-    """Executive sliders. Changing any of these triggers recalculation."""
+    """Executive sliders. Changing any of these triggers recalculation.
 
+    domain selects the decision model: "opex" (operating cost reduction) or "collections" (revenue
+    collections improvement). In the collections domain cost_reduction_target_pct is the collections
+    uplift target and acceptable_delay_increase_pct the acceptable rise in the complaint rate.
+    """
+
+    domain: Literal["opex", "collections"] = "opex"
     cost_reduction_target_pct: float = Field(20.0, ge=1, le=60)
     implementation_months: int = Field(6, ge=2, le=18)
     no_terminations: bool = True

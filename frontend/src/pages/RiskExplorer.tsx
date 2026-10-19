@@ -7,17 +7,20 @@ import { Histogram, Tornado } from "@/components/charts";
 import { Bar, Card, FUTURE_COLOR, FutureChip, PageHeader, StatusBadge, Tabs } from "@/components/ui";
 
 function Risk({ d, decisionId }: { d: any; decisionId: string }) {
-  const { t, pick, prob, egp, dir } = useI18n();
+  const { t, pick, prob, egp, dir, domain } = useI18n();
+  const col = domain === "collections";
   const res = d.simulation.results;
   const [k, setK] = useState<"A" | "B" | "C">((d.run.result.recommendation.recommended_strategy as any) || "B");
   const f = res[k];
   const risks = d.risks.filter((r: any) => r.scenario_key === k);
   const probs: [string, number][] = [
-    [pick("Meet savings target", "تحقيق هدف الوفورات"), f.probabilities.meet_target],
-    [pick("Delay within acceptable limit", "تأخير ضمن الحد المقبول"), f.probabilities.delay_within_acceptable],
+    [col ? pick("Meet collections target", "تحقيق هدف المتحصلات") : pick("Meet savings target", "تحقيق هدف الوفورات"), f.probabilities.meet_target],
+    [col ? pick("Complaints within acceptable limit", "الشكاوى ضمن الحد المقبول") : pick("Delay within acceptable limit", "تأخير ضمن الحد المقبول"),
+      f.probabilities.delay_within_acceptable],
     [pick("CSAT maintained", "الحفاظ على رضا العملاء"), f.probabilities.csat_maintained],
     [pick("Positive 12m net benefit", "صافي منفعة موجب"), f.probabilities.positive_net_benefit_12m],
-    [pick("No contractual breach", "عدم الإخلال التعاقدي"), 1 - f.probabilities.contractual_breach],
+    [col ? pick("Key-account attrition within limit", "فقد كبار العملاء ضمن الحد") : pick("No contractual breach", "عدم الإخلال التعاقدي"),
+      1 - f.probabilities.contractual_breach],
   ];
   return (
     <div>

@@ -51,8 +51,14 @@ def _new_version(db: Session, ds: EnterpriseDataset, data: dict, provenance: dic
 def list_datasets(db: DB, user: Annotated[User, require("dataset.read")]) -> list[dict[str, Any]]:
     out = []
     for ds in db.scalars(select(EnterpriseDataset).where(EnterpriseDataset.tenant_id == user.tenant_id)):
-        out.append({**row(ds), "versions": [row(v) for v in reversed(ds.versions)]})
+        out.append({**row(ds), "versions": [_version_out(v) for v in reversed(ds.versions)]})
     return out
+
+
+def _version_out(v: DatasetVersion) -> dict[str, Any]:
+    """Versions saved before a field existed show that field's documented default (and its provenance)."""
+    return {**row(v), "data": {**Baseline().model_dump(), **(v.data or {})},
+            "provenance": {**BASELINE_PROVENANCE, **(v.provenance or {})}}
 
 
 class VersionIn(BaseModel):

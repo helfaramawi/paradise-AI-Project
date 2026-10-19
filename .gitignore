@@ -15,3 +15,5 @@ playwright-report/
 backups/
 docs/video/*.mp4
 docs/video/.voice-cache/
+docs/video/*.srt
+docs/video/chapters*.txt

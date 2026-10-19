@@ -41,7 +41,7 @@ class WhatIfIn(BaseModel):
 
 
 class CustomIn(BaseModel):
-    levers: Levers
+    levers: dict[str, float]  # Levers (opex) or CollectionsLevers (collections), chosen by controls.domain
     controls: DecisionControls = DecisionControls()
     dataset_version_id: str | None = None
     iterations: int = Field(1000, ge=100, le=20000)
@@ -58,18 +58,21 @@ def _dataset(db: Session, user: User, dv_id: str | None) -> DatasetVersion:
     return dv
 
 
-def _model(db: Session) -> tuple[SimulationModel, list[UncertainParameter], LeverEconomics]:
-    m = production_model(db)
-    return m, [UncertainParameter(**p) for p in m.parameters], LeverEconomics(**m.economics)
+def _model(db: Session, domain: str = "opex") -> tuple[SimulationModel, list[UncertainParameter], LeverEconomics]:
+    m = production_model(db, domain)
+    econ = LeverEconomics(**m.economics) if domain == "opex" else LeverEconomics()
+    return m, [UncertainParameter(**p) for p in m.parameters], econ
 
 
 @router.get("/model")
-def model_info(db: DB, user: Annotated[User, require("simulation.run")]) -> dict[str, Any]:
-    m, params, econ = _model(db)
+def model_info(db: DB, user: Annotated[User, require("simulation.run")], domain: str = "opex") -> dict[str, Any]:
+    from ..simulation.collections import CollectionsLevers
+
+    m, params, econ = _model(db, domain)
     models = db.scalars(select(SimulationModel).order_by(SimulationModel.created_at.desc())).all()
     return {"production": row(m), "versions": [row(x, exclude=("parameters", "economics")) for x in models],
             "parameters": [p.model_dump() for p in params], "economics": econ.model_dump(),
-            "controls_schema": DecisionControls.model_json_schema(), "levers_schema": Levers.model_json_schema()}
+            "controls_schema": DecisionControls.model_json_schema(), "levers_schema": (CollectionsLevers if domain == "collections" else Levers).model_json_schema()}
 
 
 @router.post("/run")
@@ -79,7 +82,7 @@ def what_if(body: WhatIfIn, db: DB, user: Annotated[User, require("simulation.ru
         base = Baseline(**{**dv.data, **body.baseline_overrides})
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(422, f"Invalid baseline override: {exc}") from exc
-    m, params, econ = _model(db)
+    m, params, econ = _model(db, body.controls.domain)
     res = run_full_simulation(base, body.controls, SimulationConfig(iterations=body.iterations, seed=body.seed),
                               params, econ, include_sensitivity=body.include_sensitivity, include_des=body.include_des)
     res["meta"]["dataset_version_id"] = dv.id
@@ -101,14 +104,32 @@ def what_if(body: WhatIfIn, db: DB, user: Annotated[User, require("simulation.ru
 def custom_strategy(body: CustomIn, db: DB, user: Annotated[User, require("simulation.run")]) -> dict[str, Any]:
     """Simulation Laboratory: evaluate an arbitrary lever combination."""
     dv = _dataset(db, user, body.dataset_version_id)
-    _, params, econ = _model(db)
+    _, params, econ = _model(db, body.controls.domain)
+    if body.controls.domain == "collections":
+        from ..simulation import collections as col
+
+        try:
+            lv = col.CollectionsLevers(**body.levers)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(422, f"Invalid levers: {exc}") from exc
+        strat = col.CollectionsStrategy(key="LAB", name_en="Custom strategy", name_ar="استراتيجية مخصصة", tagline_en="",
+                                        tagline_ar="", measures_en=[], measures_ar=[], levers=lv, proposed_by=["user"])
+        cfg = SimulationConfig(iterations=body.iterations, seed=body.seed)
+        theta = sample_parameters(params, body.iterations, body.seed)
+        r = col.simulate_strategy(Baseline(**dv.data), body.controls, cfg, params, col.CollectionsEconomics(), strat, theta)
+        r["meta"] = {"seed": body.seed, "iterations": body.iterations, "domain": "collections"}
+        return r
+    try:
+        levers = Levers(**body.levers)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(422, f"Invalid levers: {exc}") from exc
     inputs = ModelInputs(Baseline(**dv.data), body.controls, SimulationConfig(iterations=body.iterations, seed=body.seed),
                          params, econ)
     theta = sample_parameters(params, body.iterations, body.seed)
     from ..simulation.futures import StrategyDefinition
 
     strat = StrategyDefinition(key="LAB", name_en="Custom strategy", name_ar="استراتيجية مخصصة", tagline_en="",
-                               tagline_ar="", measures_en=[], measures_ar=[], levers=body.levers, proposed_by=["user"])
+                               tagline_ar="", measures_en=[], measures_ar=[], levers=levers, proposed_by=["user"])
     r = simulate_strategy(inputs, strat, theta)
     r["meta"] = {"fingerprint": inputs.fingerprint(), "seed": body.seed, "iterations": body.iterations}
     return r

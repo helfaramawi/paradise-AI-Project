@@ -80,3 +80,27 @@ Use a fresh database, because the script creates a decision and submits it for a
 **Background music (optional):** save a track as `docs/video/music.mp3` (or `.m4a`/`.wav`), and the launchers pick it up automatically (or pass `--music file`). It is normalised, kept 18 dB below the voice (`--music-volume -24` for quieter, `-14` for louder), looped, faded in and out, and ducked about 12 dB more while the narrator speaks. Use music you have the rights to: commercial tracks will be blocked or muted by Content ID on public platforms, so use royalty-free music, such as the YouTube Audio Library.
 
 Output: `docs/video/future-mirror-demo-ar-voice.mp4`. For fully offline use, choose `--engine piper --piper-model ar_JO-kareem-medium.onnx`. `--engine dummy` tests the timing without any TTS service.
+
+## Egyptian-dialect demo: the collection-agency question
+
+`frontend/e2e/video/record-demo-eg.mjs` records a second demo of the same length. It types and analyses the question «ماذا لو حققنا متحصلات إيرادات أكبر بنسبة 30 % من خلال التعاقد مع شركة تحصيل؟», which runs on the **revenue collections** decision model. The video covers the same 16 chapters, now with the collections results:
+
+- No future reaches 30%; about 9.5% is achievable, because an agency only works on the overdue book.
+- Full outsourcing breaks the complaint, satisfaction and key-account constraints, and is blocked by the fair-collection policy (GOV-016).
+- The hybrid future needs Legal approval because customer data is shared with an agency (GOV-015).
+
+The captions are in Egyptian Arabic with full diacritics (tashkeel), so the voice reads them as written.
+
+```bash
+cd frontend
+BASE_URL=http://localhost:8080 OUT_DIR=../docs/video node e2e/video/record-demo-eg.mjs
+```
+
+The outputs are `future-mirror-demo-eg.mp4`, `future-mirror-demo-eg.srt` and `chapters-eg.txt`. Use a fresh database.
+
+**Voice-over with the Egyptian female voice (`ar-EG-SalmaNeural`):**
+
+- **Windows:** put both files in `docs\video` and double-click `ops\make-voiceover-eg.bat`. The output is `docs\video\future-mirror-demo-eg-voice.mp4`.
+- **macOS/Linux:** run `ops/make-voiceover-eg.sh`.
+- **Background music:** works exactly as above.
+- **Other voices or videos:** `make-voiceover.bat <male|female|voice> <video name>` voices any video with any voice.

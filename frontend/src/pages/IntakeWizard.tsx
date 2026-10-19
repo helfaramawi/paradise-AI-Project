@@ -9,7 +9,7 @@ import { ControlsForm, DEFAULT_CONTROLS, pickControls, type Controls } from "@/c
 import { Badge, Button, Card, ErrorBox, Input, PageHeader, Select, Textarea, cn } from "@/components/ui";
 
 export default function IntakeWizard() {
-  const { t, lang, pick, egp } = useI18n();
+  const { t, lang, pick, egp, setDomain } = useI18n();
   const nav = useNavigate();
   const qc = useQueryClient();
   const { setActive } = useActiveDecision();
@@ -26,7 +26,13 @@ export default function IntakeWizard() {
     onSuccess: (r: any) => {
       setParsed(r);
       setControls(pickControls(r.suggested_controls));
-      if (!title) setTitle(lang === "ar" ? "خفض التكاليف التشغيلية دون إنهاء خدمة" : "Operating cost reduction without terminations");
+      const collections = r.suggested_controls.domain === "collections";
+      setDomain(collections ? "collections" : "opex");
+      if (!title) {
+        setTitle(collections
+          ? lang === "ar" ? "زيادة المتحصلات عبر شركة تحصيل" : "Higher collections through a collection agency"
+          : lang === "ar" ? "خفض التكاليف التشغيلية دون إنهاء خدمة" : "Operating cost reduction without terminations");
+      }
       setStep(1);
     },
   });
@@ -78,9 +84,12 @@ export default function IntakeWizard() {
                 {parsed.parsed.detected.map((d: string) => <Badge key={d} tone="accent" icon={Check}>{d.replace(/_/g, " ")}</Badge>)}
               </div>
               <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-                {[["in.target", parsed.parsed.cost_reduction_target_pct != null ? `${parsed.parsed.cost_reduction_target_pct}%` : "—"],
+                {[["lab.domain", parsed.parsed.domain ? t(`dom.${parsed.parsed.domain}` as any) : "—"],
+                  ["in.target", parsed.parsed.cost_reduction_target_pct != null ? `${parsed.parsed.cost_reduction_target_pct}%` : "—"],
                   ["in.duration", parsed.parsed.implementation_months != null ? `${parsed.parsed.implementation_months} ${t("months")}` : "—"],
-                  ["cc.kpi.opex", parsed.parsed.annual_opex != null ? egp(parsed.parsed.annual_opex, 0) : "—"],
+                  parsed.parsed.domain === "collections"
+                    ? ["lever.agency_placement", parsed.parsed.mentions_agency ? "✓" : "—"]
+                    : ["cc.kpi.opex", parsed.parsed.annual_opex != null ? egp(parsed.parsed.annual_opex, 0) : "—"],
                   ["in.noTerm", parsed.parsed.no_terminations ? "✓" : "—"]].map(([k, v]) => (
                   <div key={k} className="rounded-xl border border-line p-3">
                     <dt className="text-xs text-muted">{t(k as any)}</dt>

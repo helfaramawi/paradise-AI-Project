@@ -431,6 +431,12 @@ def run_full_simulation(
     include_sensitivity: bool = True,
     include_des: bool = True,
 ) -> dict[str, Any]:
+    if controls is not None and controls.domain == "collections":
+        from . import collections
+
+        cparams = params if params and any(p.key == "agency_recovery_rate" for p in params) else None
+        return collections.run_full_simulation(baseline or Baseline(), controls, config or SimulationConfig(), cparams,
+                                               None, include_sensitivity, include_des)
     t0 = time.perf_counter()
     inputs = ModelInputs(
         baseline=baseline or Baseline(),

@@ -31,7 +31,7 @@ from ..simulation.assumptions import (
 from ..simulation.engine import run_full_simulation
 from ..simulation.futures import build_futures
 from ..simulation.validation import ValidationReport, validate_baseline
-from . import domain
+from . import collections_agents, domain
 from .base import AGENT_CATALOG, AgentContext, Evidence, Finding, Objection
 from .collision import detect_collisions, risk_register
 from .court import governance_findings, redteam_challenge, respond
@@ -104,6 +104,22 @@ def _ctx(state: PipelineState) -> AgentContext:
         simulation=state.get("simulation"),
         findings=[_finding_from(f) for f in state.get("findings", [])],
     )
+
+
+class _OpexRules:
+    """The cost-reduction domain's agents and court/collision rules (the collections domain has its own)."""
+
+    PHASE1, PHASE2 = domain.PHASE1, domain.PHASE2
+    redteam_challenge, respond = staticmethod(redteam_challenge), staticmethod(respond)
+    detect_collisions, risk_register = staticmethod(detect_collisions), staticmethod(risk_register)
+
+    @staticmethod
+    def ethics_findings(ctx: AgentContext) -> list[Finding]:
+        return []
+
+
+def rules_for(state: PipelineState):
+    return collections_agents if (state.get("controls") or {}).get("domain") == "collections" else _OpexRules
 
 
 def build_graph(rt: Runtime):
@@ -214,7 +230,7 @@ def build_graph(rt: Runtime):
 
     def make_phase1(key: str):
         def node(state: PipelineState):
-            fs = run_agent(key, "independent_analysis", domain.PHASE1[key], _ctx(state))
+            fs = run_agent(key, "independent_analysis", rules_for(state).PHASE1[key], _ctx(state))
             if not fs:
                 return {"warnings": [f"{key} produced no findings"]}
             return {"findings": fdicts(fs)}
@@ -247,10 +263,11 @@ def build_graph(rt: Runtime):
     @stage("agent_court")
     def agent_court(state: PipelineState):
         ctx = _ctx(state)
+        rules = rules_for(state)
         new: list[Finding] = []
         for key in ["cfo", "delivery", "hr", "coo", "legal", "strategy", "risk"]:
             ctx.findings = [_finding_from(f) for f in state.get("findings", [])] + new
-            new += run_agent(key, "court", domain.PHASE2[key], ctx)
+            new += run_agent(key, "court", rules.PHASE2[key], ctx)
         all_f = [_finding_from(f) for f in state.get("findings", [])] + new
         ctx.findings = all_f
 
@@ -258,18 +275,18 @@ def build_graph(rt: Runtime):
         sink.emit("agent_court", "agent_started", "Red Team Agent challenging positions", "الفريق الأحمر يتحدى المواقف",
                   agent_key="redteam")
         t0 = time.perf_counter()
-        objections = redteam_challenge(ctx, all_f)
+        objections = rules.redteam_challenge(ctx, all_f)
         for o in objections:
             sink.emit("agent_court", "objection", o.text_en, o.text_ar, agent_key="redteam",
                       payload={"target_agent": o.target_agent, "severity": o.severity, "type": o.objection_type,
                                "strategy_key": o.strategy_key})
-        objections = respond(ctx, objections)
+        objections = rules.respond(ctx, objections)
         for o in objections:
             sink.emit("agent_court", "response", o.response_en or "", o.response_ar or "", agent_key=o.response_by,
                       payload={"resolution": o.resolution, "type": o.objection_type})
         sink.finish_execution(ex_id, "completed", (time.perf_counter() - t0) * 1000, 1)
 
-        collisions = detect_collisions(ctx, all_f)
+        collisions = rules.detect_collisions(ctx, all_f)
         for c in collisions:
             sink.emit("agent_court", "collision", c["title_en"], c["title_ar"], agent_key="orchestrator",
                       payload={"rule_code": c["rule_code"], "severity": c["severity"], "strategy_key": c["strategy_key"]})
@@ -279,7 +296,7 @@ def build_graph(rt: Runtime):
     @stage("risk_assessment")
     def risk_assessment(state: PipelineState):
         ctx = _ctx(state)
-        risks = risk_register(ctx)
+        risks = rules_for(state).risk_register(ctx)
         high = [r for r in risks if r["severity"] in ("high", "critical")]
         sink.emit("risk_assessment", "message", f"{len(risks)} quantified risks; {len(high)} high/critical",
                   f"{len(risks)} مخاطر محسوبة؛ {len(high)} عالية/حرجة", agent_key="risk")
@@ -312,7 +329,7 @@ def build_graph(rt: Runtime):
                   f"طلب تنفيذ من وكيل: {probe['outcome']}", agent_key="governance",
                   payload={"probe": True, "outcome": probe["outcome"]})
         ex_id = sink.start_execution("governance", "governance", mode)
-        gf = governance_findings(ctx, gov)
+        gf = governance_findings(ctx, gov) + rules_for(state).ethics_findings(ctx)
         sink.finish_execution(ex_id, "completed", 0.0, 1)
         for f in gf:
             f.__dict__["execution_id"] = ex_id

@@ -61,11 +61,11 @@ class RunIn(BaseModel):
 def parse(body: ParseIn, user: Annotated[User, require("decision.create")]) -> dict[str, Any]:
     p = parse_decision(body.question)
     c = DecisionControls()
-    controls = c.model_copy(update={k: p[k] for k in ("cost_reduction_target_pct", "implementation_months") if k in p})
+    controls = c.model_copy(update={k: p[k] for k in ("domain", "cost_reduction_target_pct", "implementation_months") if k in p})
     if p.get("no_terminations") is not None:
         controls = controls.model_copy(update={"no_terminations": bool(p.get("no_terminations"))})
     return {"parsed": p, "suggested_controls": controls.model_dump(),
-            "supported": p["category"] == "opex_optimization",
+            "supported": p["category"] in ("opex_optimization", "collections_improvement"),
             "note_en": "Interpretation produced by a deterministic intake parser. Please confirm every field.",
             "note_ar": "التفسير ناتج عن محلل إدخال قائم على القواعد. يرجى تأكيد كل حقل."}
 
@@ -103,9 +103,14 @@ def create_decision(body: DecisionIn, db: DB, user: Annotated[User, require("dec
         if not dv:
             raise HTTPException(400, "No dataset available")
     question = sanitize(body.question)
+    intake = parse_decision(question)
     controls = {**body.controls.model_dump(), "seed": body.seed, "iterations": body.iterations}
+    # Values read from the question fill any control the caller did not set explicitly.
+    for key in ("domain", "cost_reduction_target_pct", "implementation_months"):
+        if key not in body.controls.model_fields_set and intake.get(key) is not None:
+            controls[key] = intake[key]
     d = Decision(tenant_id=user.tenant_id, title=sanitize(body.title), question=question, language=body.language,
-                 controls=controls, intake=parse_decision(question), dataset_version_id=dv.id, created_by=user.id)
+                 controls=controls, intake=intake, dataset_version_id=dv.id, created_by=user.id)
     objs, cons = objectives_and_constraints(controls, dv.data)
     d.objectives = [DecisionObjective(**o) for o in objs]
     d.constraints = [DecisionConstraint(**c) for c in cons if c["key"] != "no_terminations" or controls["no_terminations"]]

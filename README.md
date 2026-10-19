@@ -8,11 +8,12 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 
 ![Agent Court](docs/screenshots/05-agent-court.png)
 
-## What is in this release (MVP — Enterprise Operating Cost Optimisation)
+## What is in this release (MVP — operating cost reduction and revenue collections decisions)
 
 | Capability | Status |
 |---|---|
 | Decision intake wizard (EN/AR question parser, confirm-every-field) | ✅ working |
+| Two decision models: **operating cost reduction** and **revenue collections improvement** (e.g. "what if we collect 30% more through a collection agency?"), each with its own futures, agents, collision rules, constraints and labels; the question picks the model | ✅ working |
 | 10 specialist agents + Chief Decision Orchestrator on **LangGraph** (parallel fan-out, retries, timeouts, cancellation, checkpointing) | ✅ working — rule-based reasoning by default, optional LLM narration (Anthropic / OpenAI / Ollama) |
 | Live Execution Room (real Server-Sent Events, React Flow graph) | ✅ working |
 | AI Agent Court (positions, evidence, Red Team objections, responses, verdict) | ✅ working |
@@ -20,7 +21,7 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 | Three Futures with live slider recalculation | ✅ working |
 | Simulation engine: monthly cost/capacity model, Monte Carlo (2 000 draws), sensitivity tornado, SimPy project-portfolio DES, constraint checks, feasibility search | ✅ working |
 | Decision Time Machine (today → month 12, driven by the model's trajectories) | ✅ working |
-| Governance engine (14 declarative policies, locked non-negotiables, sandbox) | ✅ working |
+| Governance engine (16 declarative policies incl. customer-data sharing and fair collection, locked non-negotiables, sandbox) | ✅ working |
 | Human approval workflow with separation of duties | ✅ working |
 | Reality Feedback Loop (predicted vs actual, calibration diagnostics, candidate model that needs approval) | ✅ working |
 | PDF / Excel executive reports in English and Arabic | ✅ working |
@@ -76,6 +77,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Restore | `ops\restore.bat [backup]` | `ops/restore.sh [backup]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then restores the database, n8n data and (on a machine without one) `.env`. It also restores older single-file `.dump` backups |
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
 | Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
+| Egyptian demo voice-over | `ops\make-voiceover-eg.bat` | `ops/make-voiceover-eg.sh` | Adds the Egyptian female voice to the collection-agency demo video (see DEMO_SCRIPT.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
 

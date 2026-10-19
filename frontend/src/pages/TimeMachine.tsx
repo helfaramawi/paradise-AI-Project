@@ -8,7 +8,13 @@ import { Button, Card, FUTURE_COLOR, FutureChip, PageHeader, Tabs, cn } from "@/
 import type { DictKey } from "@/i18n/dict";
 
 const STOPS = [0, 1, 3, 6, 12];
-const METRICS: { key: string; label: DictKey; unit: "egp" | "pct" | "pts"; better: "up" | "down" }[] = [
+type Metric = { key: string; label: DictKey; unit: "egp" | "pct" | "pts" | "days"; better: "up" | "down" };
+const COLLECTIONS_METRICS: Metric[] = [
+  { key: "collections_monthly", label: "tm.collections", unit: "egp", better: "up" },
+  { key: "overdue_balance", label: "tm.overdue", unit: "egp", better: "down" },
+  { key: "dso_days", label: "tm.dso", unit: "days", better: "down" },
+];
+const BASE_METRICS: Metric[] = [
   { key: "opex_monthly", label: "tm.opex", unit: "egp", better: "down" },
   { key: "revenue_monthly", label: "tm.revenue", unit: "egp", better: "up" },
   { key: "cash_flow_monthly", label: "tm.cashflow", unit: "egp", better: "up" },
@@ -23,6 +29,8 @@ const METRICS: { key: string; label: DictKey; unit: "egp" | "pct" | "pts"; bette
 function Machine({ d, decisionId }: { d: any; decisionId: string }) {
   const { t, num, egp, pct, lang } = useI18n();
   const res = d.simulation.results;
+  // Collections decisions also track collections, the overdue book and DSO; show what the model produced.
+  const METRICS = [...COLLECTIONS_METRICS, ...BASE_METRICS].filter((m) => res.A?.trajectory?.[m.key]);
   const [month, setMonth] = useState(0);
   const [focus, setFocus] = useState<"A" | "B" | "C">((d.run.result.recommendation.recommended_strategy as "A" | "B" | "C") || "B");
   const [chartMetric, setChartMetric] = useState("cash_balance");
@@ -32,7 +40,7 @@ function Machine({ d, decisionId }: { d: any; decisionId: string }) {
     const id = setInterval(() => setMonth((m) => { if (m >= 12) { setPlaying(false); return 12; } return m + 1; }), 650);
     return () => clearInterval(id);
   }, [playing]);
-  const fmt = (u: string, v: number) => (u === "egp" ? egp(v, 2) : u === "pct" ? pct(v, 1) : num(v, 1));
+  const fmt = (u: string, v: number) => (u === "egp" ? egp(v, 2) : u === "pct" ? pct(v, 1) : u === "days" ? `${num(v, 0)} ${t("days")}` : num(v, 1));
   const f = res[focus];
   return (
     <div>
