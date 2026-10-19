@@ -140,7 +140,7 @@ const stamp = (ms) => {
 const closeCap = () => { if (open) { open.end = now(); srt.push(open); open = null; } };
 // Paced for the Egyptian female voice at +10% (about 1.75 words a second on diacritised text), so the
 // voice-over fits each caption without freezing the picture.
-const readMs = (t) => Math.max(3600, 1000 + t.split(/\s+/).length * 590);
+const readMs = (t) => Math.max(2600, 450 + t.split(/\s+/).length * 575);
 async function say(text, extra = 0) {          // show a caption and hold it for its reading time
   closeCap();
   open = { start: now(), text };
@@ -163,7 +163,7 @@ async function chapter(title, sub) {             // full-screen chapter card
   await page.evaluate(([n, ti, su, total]) => window.__fm?.card(`الْجُزْء ${n.toLocaleString("ar-EG")} مِن ${total.toLocaleString("ar-EG")}`, ti, su),
     [chapNo, title, sub, TOTAL_CH]);
   open = { start: now(), text: title };  // the subtitle is shown on the card but not read aloud
-  await sleep(3800);
+  await sleep(3200);
   closeCap();
   await page.evaluate(([ti, p]) => { window.__fm?.uncard(); window.__fm?.chap(ti, p); }, [title, chapNo / TOTAL_CH]);
   await sleep(900);
@@ -251,7 +251,7 @@ try {
   await go("/decisions/new");
   await cap("بِنِكْتِب السُّؤَال زَيّ مَا الْإِدَارَة بِتِسْأَلُه بِالظَّبْط، بِالْعَرَبِي.");
   await click(page.getByTestId("question-input"), 300);
-  await page.keyboard.type(QUESTION, { delay: 55 });
+  await page.keyboard.type(QUESTION, { delay: 35 });
   await sleep(800);
   await say("السُّؤَال: مَاذَا لَوْ حَقَّقْنَا مُتَحَصَّلَات إِيرَادَات أَكْبَر بِنِسْبِة تَلَاتِين فِي الْمِيَّة، مِن خِلَال التَّعَاقُد مَعَ شِرْكِة تَحْصِيل؟");
   await cap("الْمَنَصَّة بِتِفْهَم السُّؤَال وَتِطَلَّع مِنُّه الْعَنَاصِر الْمُهِمَّة.");
