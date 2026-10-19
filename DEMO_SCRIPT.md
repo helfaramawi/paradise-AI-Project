@@ -81,28 +81,29 @@ Use a fresh database, because the script creates a decision and submits it for a
 
 Output: `docs/video/future-mirror-demo-ar-voice.mp4`. For fully offline use, choose `--engine piper --piper-model ar_JO-kareem-medium.onnx`. `--engine dummy` tests the timing without any TTS service.
 
-## Egyptian-dialect demo: the collection-agency question
+## Port Said Free Zone demo: the collection-agency question
 
-`frontend/e2e/video/record-demo-eg.mjs` records a second demo of the same length. It types and analyses the question «ماذا لو حققنا متحصلات إيرادات أكبر بنسبة 30 % من خلال التعاقد مع شركة تحصيل؟», which runs on the **revenue collections** decision model. The video covers the same 16 chapters, now with the collections results:
+`frontend/e2e/video/record-demo-collections.mjs` records a second demo of the same length. It is set at the Executive Authority of the Port Said Free Zone (الجهاز التنفيذي للمنطقة الحرة ببورسعيد). It types and analyses the question «ماذا لو حققنا متحصلات إيرادات أكبر بنسبة 30 % من خلال التعاقد مع شركة تحصيل؟», which runs on the **revenue collections** decision model. The video covers the same 16 chapters, now with the collections results:
 
 - No future reaches 30%; about 9.5% is achievable, because an agency only works on the overdue book.
 - Full outsourcing breaks the complaint, satisfaction and key-account constraints, and is blocked by the fair-collection policy (GOV-016).
 - The hybrid future needs Legal approval because customer data is shared with an agency (GOV-015).
 
-The captions are in Egyptian Arabic with full diacritics (tashkeel), so the voice reads them as written.
+The captions are in Modern Standard Arabic with full diacritics (tashkeel), so the voice reads them as written. The narration says that all figures are illustrative sample data, not the Free Zone's real numbers.
 
 ```bash
 cd frontend
-BASE_URL=http://localhost:8080 OUT_DIR=../docs/video node e2e/video/record-demo-eg.mjs
+BASE_URL=http://localhost:8080 OUT_DIR=../docs/video node e2e/video/record-demo-collections.mjs
 ```
 
-The outputs are `future-mirror-demo-eg.mp4`, `future-mirror-demo-eg.srt` and `chapters-eg.txt`. Use a fresh database.
+The outputs are `future-mirror-demo-collections.mp4`, `future-mirror-demo-collections.srt` and `chapters-collections.txt`. Use a fresh database.
 
-**Voice-over with the Egyptian female voice (`ar-EG-SalmaNeural`):**
+**Voice-over with a female voice (`ar-EG-SalmaNeural` by default):**
 
-- **Windows:** put both files in `docs\video` and double-click `ops\make-voiceover-eg.bat`. The output is `docs\video\future-mirror-demo-eg-voice.mp4`.
+- **Windows:** put both files in `docs\video` and double-click `ops\make-voiceover-collections.bat`. The output is `docs\video\future-mirror-demo-collections-voice.mp4`.
+- **Another female voice:** `ops\make-voiceover-collections.bat ar-SA-ZariyahNeural` uses the Saudi female voice, which some listeners prefer for Modern Standard Arabic. The video was paced for Salma, so a different voice may freeze the picture a little more often.
 - **Speed:** Salma reads diacritised text slowly, so the launcher speaks 10% faster (`FM_VOICE_RATE=10`); the video was paced for that speed. To change it, run `set FM_VOICE_RATE=0` (natural) or `15` before the launcher.
 - **Refused lines:** the voice service sometimes refuses a fully diacritised line ("No audio was received"). The tool then reads that line without vowel marks and carries on.
-- **macOS/Linux:** run `ops/make-voiceover-eg.sh`.
+- **macOS/Linux:** run `ops/make-voiceover-collections.sh [voice]`.
 - **Background music:** works exactly as above.
 - **Other voices or videos:** `make-voiceover.bat <male|female|voice> <video name>` voices any video with any voice.
