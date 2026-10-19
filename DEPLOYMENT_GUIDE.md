@@ -1,5 +1,7 @@
 # Deployment Guide
 
+For a complete on-premises guide with sizing, technical requirements, firewall rules and step-by-step installation, see [docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx).
+
 ## 1. Components
 
 | Service | Image | Port | Notes |
