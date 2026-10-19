@@ -30,6 +30,7 @@ def strategy_context(
     # Decision-level collisions (strategy_key None) concern the objective itself and are surfaced as a
     # required revision in the recommendation; only strategy-specific critical collisions block approval.
     crit = [c for c in collisions if c.get("strategy_key") == k and c.get("severity") == "critical"]
+    collections = controls.get("domain") == "collections"  # there the "delay" metric is the complaint rate
     return {
         "action": {
             "type": "strategy.approve",
@@ -42,7 +43,8 @@ def strategy_context(
         },
         "decision": {"no_terminations": controls.get("no_terminations", True), "status": decision_status},
         "analysis": {
-            "max_delay_increase_pct": s["max_delay_increase_pct"]["p50"],
+            "max_delay_increase_pct": 0.0 if collections else s["max_delay_increase_pct"]["p50"],
+            "complaint_increase_pct": s["max_delay_increase_pct"]["p50"] if collections else 0.0,
             "peak_utilization_pct": s["peak_utilization_pct"]["p50"],
             "hard_constraints_violated": future["hard_constraints_violated"],
             "critical_collisions": len(crit),

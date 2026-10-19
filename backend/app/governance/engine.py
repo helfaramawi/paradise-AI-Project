@@ -251,4 +251,27 @@ DEFAULT_POLICIES: list[dict[str, Any]] = [
                  "message_en": "Blocked: consequential automation cannot run live without authorisation.",
                  "message_ar": "مرفوض: لا يمكن تشغيل الأتمتة ذات الأثر فعلياً دون تفويض."},
     },
+    {
+        "code": "GOV-015", "effect": "require_approval",
+        "name_en": "Customer data shared with a third party", "name_ar": "مشاركة بيانات العملاء مع طرف ثالث",
+        "description_en": "Placing receivables with a collection agency shares customer personal data. A data-processing "
+                          "agreement under the Personal Data Protection Law (Law 151 of 2020) and General Counsel "
+                          "approval are required.",
+        "description_ar": "تسليم المديونيات لشركة تحصيل يعني مشاركة بيانات العملاء الشخصية، ويتطلب اتفاقية معالجة بيانات "
+                          "وفق قانون حماية البيانات الشخصية (القانون 151 لسنة 2020) وموافقة المستشار القانوني.",
+        "rule": {"when": _c("action.levers.agency_placement", "gt", 0), "roles": ["legal"],
+                 "message_en": "Sharing customer data with a collection agency requires a data-processing agreement and Legal approval.",
+                 "message_ar": "مشاركة بيانات العملاء مع شركة تحصيل تتطلب اتفاقية معالجة بيانات وموافقة الشؤون القانونية."},
+    },
+    {
+        "code": "GOV-016", "effect": "deny", "locked": False,
+        "name_en": "Fair collection conduct", "name_ar": "التحصيل العادل",
+        "description_en": "High-frequency contact, pressure tactics and early legal escalation against customers are "
+                          "prohibited; legal action on a debt is decided case by case by Legal.",
+        "description_ar": "يُحظر التواصل المكثف وأساليب الضغط والتصعيد القانوني المبكر مع العملاء؛ وأي إجراء قانوني على "
+                          "مديونية تقرره الشؤون القانونية لكل حالة على حدة.",
+        "rule": {"when": _c("action.levers.aggressive_tactics", "gt", 0),
+                 "message_en": "Blocked: aggressive collection practices violate the fair-collection policy.",
+                 "message_ar": "مرفوض: أساليب التحصيل الحادة تخالف سياسة التحصيل العادل."},
+    },
 ]

@@ -45,14 +45,23 @@ from .events import EventSink, RunCancelled, RunTimeout
 log = logging.getLogger("future_mirror.pipeline")
 
 
-def production_model(db: Session) -> SimulationModel:
-    m = db.scalar(select(SimulationModel).where(SimulationModel.key == MODEL_ID, SimulationModel.status == "production")
+def production_model(db: Session, domain: str = "opex") -> SimulationModel:
+    from ..simulation import collections
+
+    key = collections.MODEL_ID if domain == "collections" else MODEL_ID
+    m = db.scalar(select(SimulationModel).where(SimulationModel.key == key, SimulationModel.status == "production")
                   .order_by(SimulationModel.created_at.desc()))
     if m is None:
-        m = SimulationModel(key=MODEL_ID, version=MODEL_VERSION, status="production",
-                            description="Operating cost optimisation: monthly cost/capacity model with Monte Carlo",
-                            parameters=[p.model_dump() for p in default_uncertain_parameters()],
-                            economics=LeverEconomics().model_dump())
+        if domain == "collections":
+            m = SimulationModel(key=key, version=collections.MODEL_VERSION, status="production",
+                                description="Revenue collections improvement: monthly receivables-flow model with Monte Carlo",
+                                parameters=[p.model_dump() for p in collections.default_parameters()],
+                                economics=collections.CollectionsEconomics().model_dump())
+        else:
+            m = SimulationModel(key=MODEL_ID, version=MODEL_VERSION, status="production",
+                                description="Operating cost optimisation: monthly cost/capacity model with Monte Carlo",
+                                parameters=[p.model_dump() for p in default_uncertain_parameters()],
+                                economics=LeverEconomics().model_dump())
         db.add(m)
         db.commit()
     return m
@@ -78,7 +87,7 @@ def _persist_results(run_id: str, state: dict[str, Any]) -> None:
     with SessionLocal() as db:
         run = db.get(DecisionRun, run_id)
         decision = db.get(Decision, run.decision_id)
-        model = production_model(db)
+        model = production_model(db, decision.controls.get("domain", "opex"))
         sim = state["simulation"]
         persist_simulation(db, tenant_id=decision.tenant_id, decision_id=decision.id, run_id=run.id, model=model,
                            dataset_version_id=decision.dataset_version_id, sim=sim, kind="pipeline",
@@ -140,7 +149,8 @@ def execute_run(run_id: str, fail_injection: dict[str, int] | None = None) -> No
         run = db.get(DecisionRun, run_id)
         decision = db.get(Decision, run.decision_id)
         dv = db.get(DatasetVersion, decision.dataset_version_id)
-        model = production_model(db)
+        domain = decision.controls.get("domain", "opex")
+        model = production_model(db, domain)
         policies = load_policies(db, decision.tenant_id)
         run.status = "running"
         run.started_at = datetime.now(UTC)
@@ -149,7 +159,7 @@ def execute_run(run_id: str, fail_injection: dict[str, int] | None = None) -> No
         tenant_id, question, controls, baseline, intake = (decision.tenant_id, decision.question, decision.controls,
                                                            dv.data, decision.intake)
         params = [UncertainParameter(**p) for p in model.parameters]
-        economics = LeverEconomics(**model.economics)
+        economics = LeverEconomics(**model.economics) if domain == "opex" else LeverEconomics()
         pacing = run.pacing_ms
 
     provider = get_provider(s)

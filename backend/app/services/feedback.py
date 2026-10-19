@@ -34,6 +34,15 @@ METRICS = {
     "csat_pct": ("Customer satisfaction (%)", "رضا العملاء"),
     "cash_balance": ("Cash balance (EGP M)", "الرصيد النقدي"),
 }
+# Same metric keys, named for the collections domain (see simulation/collections.py).
+METRICS_COLLECTIONS = {
+    **METRICS,
+    "opex_monthly": ("Monthly operating cost incl. fees (EGP M)", "التكلفة التشغيلية الشهرية شاملة العمولات"),
+    "revenue_monthly": ("Monthly billing (EGP M)", "الفوترة الشهرية"),
+    "savings_run_rate": ("Extra collections run-rate (EGP M/yr)", "معدل المتحصلات الإضافية السنوي"),
+    "delay_pct": ("Customer complaint rate (%)", "معدل شكاوى العملاء"),
+    "utilization_pct": ("Collections team utilisation (%)", "استغلال فريق التحصيل"),
+}
 
 
 def tracked_scenario(db: Session, decision: Decision) -> tuple[str, SimulationRun]:

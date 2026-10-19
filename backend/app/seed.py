@@ -143,7 +143,23 @@ def seed_agents(db: Session) -> None:
     db.commit()
 
 
+def sync_policies(db: Session) -> None:
+    """Adds policies introduced in newer versions to existing tenants (never changes edited ones)."""
+    for t in db.scalars(select(Tenant)):
+        have = {p.code for p in db.scalars(select(GovernancePolicy).where(GovernancePolicy.tenant_id == t.id))}
+        if not have:
+            continue
+        for p in DEFAULT_POLICIES:
+            if p["code"] not in have:
+                db.add(GovernancePolicy(tenant_id=t.id, code=p["code"], name_en=p["name_en"], name_ar=p["name_ar"],
+                                        description_en=p["description_en"], description_ar=p["description_ar"],
+                                        effect=p["effect"], rule=p["rule"], locked=p.get("locked", False)))
+    db.commit()
+
+
 def seed_all(db: Session) -> None:
     seed_agents(db)
     production_model(db)
+    production_model(db, "collections")
     seed_tenant(db)
+    sync_policies(db)

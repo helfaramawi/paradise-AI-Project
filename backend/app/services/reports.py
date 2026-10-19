@@ -133,9 +133,13 @@ def build_pdf(dossier: dict[str, Any], lang: str = "en", comparisons: list[dict]
     story += [H("context"), table([
         [_t("en", "Metric", ""), "Value"] if lang == "en" else ["المؤشر", "القيمة"],
         *[[k.replace("_", " "), f"{v:,.2f}" if isinstance(v, float) else str(v)] for k, v in data.items()
-          if k in ("annual_opex", "annual_revenue", "employees", "active_projects", "gross_margin_pct", "utilization_pct",
-                   "avg_project_delay_pct", "csat_pct", "software_cost", "infrastructure_cost", "contractor_cost",
-                   "personnel_cost")]], [90 * mm, 60 * mm])]
+          if k in (("annual_revenue", "overdue_receivables", "ontime_collection_rate_pct", "inhouse_recovery_rate_pct",
+                    "writeoff_rate_pct", "key_account_overdue_share_pct", "collections_team_fte", "complaint_rate_pct",
+                    "csat_pct", "opening_cash")
+                   if (d.get("controls") or {}).get("domain") == "collections" else
+                   ("annual_opex", "annual_revenue", "employees", "active_projects", "gross_margin_pct", "utilization_pct",
+                    "avg_project_delay_pct", "csat_pct", "software_cost", "infrastructure_cost", "contractor_cost",
+                    "personnel_cost"))]], [90 * mm, 60 * mm])]
 
     val = ds.get("validation") or {}
     story += [H("dq"), P(f"Quality score: {val.get('quality_score', 0):.0%}",
@@ -159,20 +163,33 @@ def build_pdf(dossier: dict[str, Any], lang: str = "en", comparisons: list[dict]
             s = res[k]["summary"][m]
             return f"{fmt.format(s['p50'])} [{fmt.format(s['p10'])}–{fmt.format(s['p90'])}]"
         rows = [hdr]
-        for m, en, ar in [("savings_pct_at_deadline", "Savings % at deadline", "نسبة الوفورات"),
-                          ("run_rate_savings_at_deadline", "Run-rate savings (EGP M)", "الوفورات السنوية"),
-                          ("one_off_implementation_cost", "Implementation cost (EGP M)", "تكلفة التنفيذ"),
-                          ("net_benefit_12m", "12m net benefit (EGP M)", "صافي المنفعة 12 شهراً"),
-                          ("max_delay_increase_pct", "Delay increase (pts)", "زيادة التأخير"),
-                          ("min_csat_pct", "Minimum CSAT (%)", "أدنى رضا عملاء"),
-                          ("peak_utilization_pct", "Peak utilisation (%)", "أقصى استغلال")]:
+        collections = (d.get("controls") or {}).get("domain") == "collections"
+        metric_rows = ([("savings_pct_at_deadline", "Collections uplift % at deadline", "نسبة زيادة المتحصلات"),
+                        ("run_rate_savings_at_deadline", "Extra collections a year (EGP M)", "المتحصلات الإضافية سنوياً"),
+                        ("agency_fees_12m", "Agency fees 12m (EGP M)", "عمولات شركة التحصيل 12 شهراً"),
+                        ("one_off_implementation_cost", "Implementation cost (EGP M)", "تكلفة التنفيذ"),
+                        ("net_benefit_12m", "12m net cash benefit (EGP M)", "صافي المنفعة النقدية 12 شهراً"),
+                        ("dso_days_at_deadline", "DSO at deadline (days)", "فترة التحصيل في الموعد (يوم)"),
+                        ("max_delay_increase_pct", "Complaint rate increase (pts)", "زيادة الشكاوى"),
+                        ("min_csat_pct", "Minimum CSAT (%)", "أدنى رضا عملاء"),
+                        ("relationship_loss_pct", "Key-account attrition (% revenue)", "فقد كبار العملاء (% من الإيرادات)")]
+                       if collections else
+                       [("savings_pct_at_deadline", "Savings % at deadline", "نسبة الوفورات"),
+                        ("run_rate_savings_at_deadline", "Run-rate savings (EGP M)", "الوفورات السنوية"),
+                        ("one_off_implementation_cost", "Implementation cost (EGP M)", "تكلفة التنفيذ"),
+                        ("net_benefit_12m", "12m net benefit (EGP M)", "صافي المنفعة 12 شهراً"),
+                        ("max_delay_increase_pct", "Delay increase (pts)", "زيادة التأخير"),
+                        ("min_csat_pct", "Minimum CSAT (%)", "أدنى رضا عملاء"),
+                        ("peak_utilization_pct", "Peak utilisation (%)", "أقصى استغلال")])
+        for m, en, ar in metric_rows:
             rows.append([ar if lang == "ar" else en, q("A", m), q("B", m), q("C", m)])
         rows.append(["P(meet target)" if lang == "en" else "احتمال تحقيق الهدف",
                      *[f"{res[k]['probabilities']['meet_target']:.0%}" for k in "ABC"]])
         rows.append(["Constraints violated" if lang == "en" else "القيود غير المستوفاة",
                      *[", ".join(res[k]["constraints_violated"]) or "—" for k in "ABC"]])
-        rows.append(["Projects at risk (DES)" if lang == "en" else "مشروعات معرضة للخطر",
-                     *[str(res[k]["project_portfolio"]["projects_at_risk"]) for k in "ABC"]])
+        at_risk_label = (("Client segments at risk", "شرائح عملاء معرضة للخطر") if collections
+                         else ("Projects at risk (DES)", "مشروعات معرضة للخطر"))
+        rows.append([at_risk_label[lang == "ar"], *[str(res[k]["project_portfolio"]["projects_at_risk"]) for k in "ABC"]])
         story.append(table(rows, [52 * mm, 39 * mm, 39 * mm, 39 * mm]))
         story.append(P("Values: median [P10–P90] over Monte Carlo iterations.", "القيم: الوسيط [P10–P90] عبر تكرارات مونت كارلو.", small))
 

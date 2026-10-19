@@ -2,6 +2,7 @@ import { useI18n } from "@/lib/app";
 import { Select, SliderField, Toggle } from "./ui";
 
 export type Controls = {
+  domain: "opex" | "collections";
   cost_reduction_target_pct: number;
   implementation_months: number;
   no_terminations: boolean;
@@ -14,6 +15,7 @@ export type Controls = {
 };
 
 export const DEFAULT_CONTROLS: Controls = {
+  domain: "opex",
   cost_reduction_target_pct: 20,
   implementation_months: 6,
   no_terminations: true,
@@ -36,11 +38,11 @@ export function ControlsForm({ value, onChange, compact, wide }: { value: Contro
   const set = <K extends keyof Controls>(k: K, v: Controls[K]) => onChange({ ...value, [k]: v });
   return (
     <div className={compact ? "space-y-4" : wide ? "grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5" : "grid gap-5 md:grid-cols-2"}>
-      <SliderField label={t("in.target")} value={value.cost_reduction_target_pct} min={2} max={40} step={1}
+      <SliderField label={t("in.target")} value={value.cost_reduction_target_pct} min={2} max={value.domain === "collections" ? 60 : 40} step={1}
         onChange={(v) => set("cost_reduction_target_pct", v)} format={(v) => pct(v, 0)} />
       <SliderField label={t("in.duration")} value={value.implementation_months} min={3} max={12} step={1}
         onChange={(v) => set("implementation_months", v)} format={(v) => `${num(v, 0)} ${t("months")}`} />
-      <SliderField label={t("in.automation")} value={value.automation_investment} min={0} max={20} step={0.5}
+      <SliderField label={t("in.automation")} value={value.automation_investment} min={0} max={value.domain === "collections" ? 10 : 20} step={0.5}
         onChange={(v) => set("automation_investment", v)} format={(v) => egp(v, 1)} />
       <SliderField label={t("in.delay")} value={value.acceptable_delay_increase_pct} min={0} max={10} step={0.5}
         onChange={(v) => set("acceptable_delay_increase_pct", v)} format={(v) => `${num(v, 1)} ${t("pts")}`} />

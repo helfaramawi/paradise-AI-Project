@@ -5,24 +5,37 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/app";
 import { DEFAULT_CONTROLS, ControlsForm, type Controls } from "@/components/Controls";
 import { FanChart, Histogram, Tornado } from "@/components/charts";
-import { Badge, Button, Card, ErrorBox, PageHeader, SliderField, Stat } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, PageHeader, SliderField, Stat, Tabs } from "@/components/ui";
 import type { DictKey } from "@/i18n/dict";
 
-const LEVERS = [
-  "software_consolidation", "infra_optimization", "vendor_renegotiation", "facilities_consolidation", "expense_freeze",
-  "contractor_reduction", "automation_investment", "operating_model_redesign", "workforce_termination",
-] as const;
+type Domain = "opex" | "collections";
+// Lever sets and starting values per decision model; money levers are EGP M, the rest 0..1 intensities.
+const LEVERS: Record<Domain, { start: Record<string, number>; money: Record<string, number> }> = {
+  opex: {
+    start: { software_consolidation: 0.8, infra_optimization: 0.8, vendor_renegotiation: 0.6, facilities_consolidation: 0,
+      expense_freeze: 0.5, contractor_reduction: 0.25, automation_investment: 4, operating_model_redesign: 0, workforce_termination: 0 },
+    money: { automation_investment: 20 },
+  },
+  collections: {
+    start: { agency_placement: 0.55, aggressive_tactics: 0, digital_collections: 2, early_payment_discount: 0.5,
+      team_reallocation: 0.5, workforce_termination: 0 },
+    money: { digital_collections: 10 },
+  },
+};
 
 export default function SimulationLab() {
-  const { t, pick, egp, pct, num, prob } = useI18n();
-  const [levers, setLevers] = useState<Record<string, number>>({
-    software_consolidation: 0.8, infra_optimization: 0.8, vendor_renegotiation: 0.6, facilities_consolidation: 0,
-    expense_freeze: 0.5, contractor_reduction: 0.25, automation_investment: 4, operating_model_redesign: 0, workforce_termination: 0,
-  });
-  const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
+  const { t, pick, egp, pct, num, prob, domain, setDomain } = useI18n();
+  const [levers, setLevers] = useState<Record<string, number>>(LEVERS[domain].start);
+  const [controls, setControls] = useState<Controls>({ ...DEFAULT_CONTROLS, domain, cost_reduction_target_pct: domain === "collections" ? 30 : 20 });
   const [iterations, setIterations] = useState(2000);
-  const model = useQuery({ queryKey: ["model"], queryFn: () => api("/simulation/model") });
+  const model = useQuery({ queryKey: ["model", domain], queryFn: () => api(`/simulation/model?domain=${domain}`) });
   const run = useMutation({ mutationFn: () => api("/simulation/custom", { method: "POST", json: { levers, controls, iterations } }) });
+  const switchDomain = (d: Domain) => {
+    setDomain(d);
+    setLevers(LEVERS[d].start);
+    setControls({ ...DEFAULT_CONTROLS, domain: d, cost_reduction_target_pct: d === "collections" ? 30 : 20 });
+    run.reset();
+  };
   const r: any = run.data;
   return (
     <div>
@@ -31,13 +44,18 @@ export default function SimulationLab() {
         <div className="space-y-5">
           <Card title={t("lab.levers")}>
             <div className="space-y-4">
-              {LEVERS.map((k) => (
-                <SliderField key={k} label={t(`lever.${k}` as DictKey)} value={levers[k]}
-                  min={0} max={k === "automation_investment" ? 20 : 1} step={k === "automation_investment" ? 0.5 : 0.05}
-                  onChange={(v) => setLevers({ ...levers, [k]: v })}
-                  format={(v) => (k === "automation_investment" ? egp(v) : pct(v * 100, 0))}
-                  hint={k === "workforce_termination" ? t("lab.termWarn") : undefined} />
-              ))}
+              <Tabs value={domain} onChange={(v) => switchDomain(v as Domain)}
+                items={(["opex", "collections"] as const).map((d) => ({ value: d, label: t(`dom.${d}` as DictKey) }))} />
+              {Object.keys(LEVERS[domain].start).map((k) => {
+                const money = LEVERS[domain].money[k];
+                return (
+                  <SliderField key={k} label={t(`lever.${k}` as DictKey)} value={levers[k] ?? 0}
+                    min={0} max={money ?? 1} step={money ? 0.5 : 0.05}
+                    onChange={(v) => setLevers({ ...levers, [k]: v })}
+                    format={(v) => (money ? egp(v) : pct(v * 100, 0))}
+                    hint={k === "workforce_termination" ? t("lab.termWarn") : undefined} />
+                );
+              })}
               <SliderField label="Monte Carlo iterations" value={iterations} min={200} max={10000} step={200} onChange={setIterations} format={(v) => num(v, 0)} />
               <Button className="w-full" icon={Play} loading={run.isPending} onClick={() => run.mutate()} data-testid="lab-run">{t("lab.run")}</Button>
               <ErrorBox error={run.error} />
@@ -49,7 +67,7 @@ export default function SimulationLab() {
           {r ? (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Stat label={t("fu.savings")} value={pct(r.summary.savings_pct_at_deadline.p50)} sub={egp(r.summary.run_rate_savings_at_deadline.p50)} />
+                <Stat label={t("fu.savingsPct")} value={pct(r.summary.savings_pct_at_deadline.p50)} sub={egp(r.summary.run_rate_savings_at_deadline.p50)} />
                 <Stat label={t("fu.net")} value={egp(r.summary.net_benefit_12m.p50)} sub={`${t("range")} ${num(r.summary.net_benefit_12m.p10)}–${num(r.summary.net_benefit_12m.p90)}`} />
                 <Stat label={t("fu.delay")} value={`+${num(r.summary.max_delay_increase_pct.p50)} ${t("pts")}`} sub={`P90 +${num(r.summary.max_delay_increase_pct.p90)}`} />
                 <Stat label={t("fu.pTarget")} value={prob(r.probabilities.meet_target)} sub={`${t("fu.violated")}: ${r.constraints_violated.join(", ") || "—"}`}
@@ -68,18 +86,23 @@ export default function SimulationLab() {
                 <Card title={t("lab.tornado")}><Tornado rows={r.sensitivity} base={r.sensitivity[0]?.base_net_benefit ?? 0} /></Card>
                 <Card title={t("lab.hist")}><Histogram counts={r.net_benefit_histogram.counts} edges={r.net_benefit_histogram.edges} /></Card>
               </div>
-              <Card title={t("lab.des")} subtitle={`${r.project_portfolio.method} · capacity ${num(r.project_portfolio.baseline_capacity_fte)} → ${num(r.project_portfolio.scenario_capacity_fte)} FTE`}>
+              <Card title={t("lab.des")} subtitle={r.project_portfolio.kind === "debtor_segments" ? r.project_portfolio.method
+                : `${r.project_portfolio.method} · capacity ${num(r.project_portfolio.baseline_capacity_fte)} → ${num(r.project_portfolio.scenario_capacity_fte)} FTE`}>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9">
                   {r.project_portfolio.projects.map((p: any) => (
-                    <div key={p.project_id} title={`${p.baseline_months} → ${p.scenario_months} months`}
+                    <div key={p.project_id} title={`${p.baseline_months} → ${p.scenario_months} ${t("months")}`}
                       className={`rounded-lg border p-2 text-center text-[10px] ${p.at_risk ? "border-critical/60 bg-critical/10" : "border-line"}`}>
-                      <div className="font-semibold">{p.project_id}</div>
-                      <div className="num">+{num(p.additional_delay_pct, 1)}%</div>
+                      <div className="font-semibold">{p.name_en ? pick(p.name_en, p.name_ar) : p.project_id}</div>
+                      {p.name_en ? (
+                        <div className="num">{num(p.baseline_months, 0)} → {num(p.scenario_months, 0)} {t("months")}</div>
+                      ) : (
+                        <div className="num">+{num(p.additional_delay_pct, 1)}%</div>
+                      )}
                     </div>
                   ))}
                 </div>
               </Card>
-              <p className="text-[11px] text-muted num">fingerprint {r.meta.fingerprint} · seed {r.meta.seed} · n={num(r.meta.iterations, 0)}</p>
+              <p className="text-[11px] text-muted num">{r.meta.fingerprint && `fingerprint ${r.meta.fingerprint} · `}seed {r.meta.seed} · n={num(r.meta.iterations, 0)}</p>
             </>
           ) : (
             <Card><div className="p-10 text-center text-sm text-muted">{t("lab.run")} →</div></Card>

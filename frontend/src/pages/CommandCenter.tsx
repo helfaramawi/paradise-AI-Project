@@ -1,18 +1,20 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, ArrowRight, BadgeCheck, Building2, Clock, Gauge, Landmark, ShieldCheck, Smile, Users, Wallet } from "lucide-react";
+import { Activity, ArrowRight, BadgeCheck, Building2, CalendarClock, Clock, Gauge, HandCoins, Landmark, MessageSquareWarning, ShieldCheck, Smile, Users, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/app";
 import { useDossier, useResolvedDecisionId } from "@/lib/hooks";
+import { useDecisionDomain } from "@/components/DecisionGate";
 import { Badge, Button, Card, FUTURE_COLOR, FutureChip, PageHeader, Spinner, Stat, StatusBadge } from "@/components/ui";
 
 export default function CommandCenter() {
-  const { t, pick, egp, pct, num, date, prob } = useI18n();
+  const { t, pick, egp, pct, num, date, prob, domain } = useI18n();
   const { data: dash, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: () => api("/dashboard"), refetchInterval: 10000 });
   const { data: datasets } = useQuery({ queryKey: ["datasets"], queryFn: () => api<any[]>("/datasets") });
   const did = useResolvedDecisionId();
   const { data: dossier } = useDossier(did);
+  useDecisionDomain(dossier);
   if (isLoading) return <Spinner />;
   const ds = datasets?.[0]?.versions?.[0]?.data;
   const rec = dossier?.run?.result?.recommendation;
@@ -34,7 +36,17 @@ export default function CommandCenter() {
         </div>
       </motion.div>
 
-      {ds && (
+      {ds && domain === "collections" && (
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Stat label={t("cc.kpi.revenue")} value={egp(ds.annual_revenue, 0)} icon={Building2} />
+          <Stat label={t("tm.overdue")} value={egp(ds.overdue_receivables, 0)} icon={HandCoins} />
+          <Stat label={t("cc.kpi.ontime")} value={pct(ds.ontime_collection_rate_pct, 0)} icon={Gauge} />
+          <Stat label={t("tm.dso")} value={`${num((ds.annual_revenue / 12 * 1.5 + ds.overdue_receivables) / (ds.annual_revenue / 360), 0)} ${t("days")}`} icon={CalendarClock} />
+          <Stat label={t("tm.delay")} value={pct(ds.complaint_rate_pct, 1)} icon={MessageSquareWarning} />
+          <Stat label={t("cc.kpi.csat")} value={pct(ds.csat_pct, 0)} icon={Smile} />
+        </div>
+      )}
+      {ds && domain !== "collections" && (
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label={t("cc.kpi.opex")} value={egp(ds.annual_opex, 0)} icon={Wallet} />
           <Stat label={t("cc.kpi.revenue")} value={egp(ds.annual_revenue, 0)} icon={Building2} />
@@ -65,7 +77,7 @@ export default function CommandCenter() {
                       </div>
                       <div className="mt-1 text-[11px] text-muted">{pick(f?.definition?.name_en, f?.definition?.name_ar)}</div>
                       <div className="mt-3 font-display text-2xl font-semibold num">{pct(f?.summary.savings_pct_at_deadline.p50)}</div>
-                      <div className="text-[11px] text-muted">{t("fu.savings")}</div>
+                      <div className="text-[11px] text-muted">{t("fu.savingsPct")}</div>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         <StatusBadge status={pf.governance_outcome} />
                         <Badge tone="neutral">{t("fu.pTarget")} {prob(f?.probabilities.meet_target)}</Badge>

@@ -100,14 +100,16 @@ def build_recommendation(
             options.append(r)
 
     c: DecisionControls = ctx.controls
+    tol_en, tol_ar = (("complaint tolerance", "حد الشكاوى") if c.domain == "collections"
+                      else ("delivery tolerance", "حد التأخير"))
     if per[best]["status"] == "acceptable":
         headline_en = f"Recommended for approval review: {_fe(best)} satisfies all hard constraints at the {c.risk_tolerance} risk tolerance."
         headline_ar = f"موصى به للمراجعة والاعتماد: {_fa(best)} يستوفي جميع القيود الإلزامية عند مستوى المخاطرة المختار."
     elif per[best]["status"] == "conditional":
         headline_en = (f"No future satisfies every objective as stated. {_fe(best)} is the strongest basis, conditional on "
-                       f"executive changes to the target, timeline or delivery tolerance.")
+                       f"executive changes to the target, timeline or {tol_en}.")
         headline_ar = (f"لا يوجد مستقبل يحقق كل الأهداف كما صيغت. {_fa(best)} هو الأساس الأقوى، بشرط إجراء تعديلات تنفيذية "
-                       f"على الهدف أو الإطار الزمني أو حد التأخير.")
+                       f"على الهدف أو الإطار الزمني أو {tol_ar}.")
     else:
         headline_en = "All futures are blocked by governance policy. Revise the decision scope."
         headline_ar = "جميع الخيارات مرفوضة بموجب سياسات الحوكمة. يجب تعديل نطاق القرار."
@@ -129,6 +131,10 @@ def build_recommendation(
         {"phase": "6–12", "en": "Operating model adjustments; monthly predicted-vs-actual review and recalibration",
          "ar": "تعديلات نموذج التشغيل؛ مراجعة شهرية للمتوقع مقابل الفعلي وإعادة المعايرة"},
     ]
+    if c.domain == "collections":
+        from .collections_agents import NEXT_STEPS, ROADMAP
+
+        next_steps, roadmap = NEXT_STEPS, ROADMAP
     return {
         "recommended_strategy": best if per[best]["status"] != "not_acceptable" else None,
         "status": per[best]["status"],
