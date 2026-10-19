@@ -101,6 +101,8 @@ The outputs are `future-mirror-demo-eg.mp4`, `future-mirror-demo-eg.srt` and `ch
 **Voice-over with the Egyptian female voice (`ar-EG-SalmaNeural`):**
 
 - **Windows:** put both files in `docs\video` and double-click `ops\make-voiceover-eg.bat`. The output is `docs\video\future-mirror-demo-eg-voice.mp4`.
+- **Speed:** Salma reads diacritised text slowly, so the launcher speaks 10% faster (`FM_VOICE_RATE=10`); the video was paced for that speed. To change it, run `set FM_VOICE_RATE=0` (natural) or `15` before the launcher.
+- **Refused lines:** the voice service sometimes refuses a fully diacritised line ("No audio was received"). The tool then reads that line without vowel marks and carries on.
 - **macOS/Linux:** run `ops/make-voiceover-eg.sh`.
 - **Background music:** works exactly as above.
 - **Other voices or videos:** `make-voiceover.bat <male|female|voice> <video name>` voices any video with any voice.
