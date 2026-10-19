@@ -16,5 +16,5 @@ python3 -m pip install --quiet --upgrade edge-tts
 MUSIC=()
 for m in docs/video/music.mp3 docs/video/music.m4a docs/video/music.wav; do [ -f "$m" ] && MUSIC=(--music "$m"); done
 python3 scripts/voiceover/make_voiceover.py --video docs/video/$VIDEO.mp4 \
-  --srt docs/video/$VIDEO.srt --voice "$VOICE" "${MUSIC[@]}"
+  --srt docs/video/$VIDEO.srt --voice "$VOICE" --rate "${FM_VOICE_RATE:-0}" "${MUSIC[@]}"
 echo "Done: docs/video/$VIDEO-voice.mp4"

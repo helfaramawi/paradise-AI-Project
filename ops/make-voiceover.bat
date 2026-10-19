@@ -15,6 +15,9 @@ if /i "%~1"=="male" set "VOICE=ar-EG-ShakirNeural"
 echo %~1 | findstr /b /c:"ar-" >nul && set "VOICE=%~1"
 set "VIDEO=future-mirror-demo-ar"
 if not "%~2"=="" set "VIDEO=%~2"
+rem Speaking speed in percent (e.g. set FM_VOICE_RATE=10 for 10% faster); default: the voice's natural speed.
+set "RATE_ARG="
+if defined FM_VOICE_RATE set "RATE_ARG=--rate %FM_VOICE_RATE%"
 
 set "PY="
 where py >nul 2>&1 && set "PY=py -3"
@@ -47,7 +50,7 @@ echo Generating the Arabic voice-over with %VOICE% ^(about 3-5 minutes^) ...
 set "MUSIC_ARG="
 for %%m in (docs\video\music.mp3 docs\video\music.m4a docs\video\music.wav) do if exist "%%m" set "MUSIC_ARG=--music %%m"
 if defined MUSIC_ARG (echo Background music found: %MUSIC_ARG:--music =%) else (echo No background music ^(to add some, save it as docs\video\music.mp3^))
-%PY% scripts\voiceover\make_voiceover.py --video docs\video\%VIDEO%.mp4 --srt docs\video\%VIDEO%.srt --voice %VOICE% %MUSIC_ARG% || goto fail
+%PY% scripts\voiceover\make_voiceover.py --video docs\video\%VIDEO%.mp4 --srt docs\video\%VIDEO%.srt --voice %VOICE% %RATE_ARG% %MUSIC_ARG% || goto fail
 echo.
 echo Done: docs\video\%VIDEO%-voice.mp4
 explorer /select,"%CD%\docs\video\%VIDEO%-voice.mp4"

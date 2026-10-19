@@ -80,19 +80,28 @@ def speakable(text: str) -> str:
 
 
 # ------------------------------------------------------------------ engines
+TASHKEEL = re.compile("[\u064b-\u0650\u0652\u0670]")  # vowel marks; shadda (\u0651) is kept
+
+
 async def synth_edge(text: str, out: Path, voice: str, rate_pct: int) -> None:
     import edge_tts  # noqa: PLC0415
 
     rate = f"{'+' if rate_pct >= 0 else ''}{rate_pct}%"
-    for attempt in range(4):
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or None  # corporate networks
+    # The service now and then returns "No audio was received" for a fully diacritised line, so the
+    # last attempts send the same words without vowel marks, then without any marks.
+    variants = [text, text, TASHKEEL.sub("", text), re.sub("[\u064b-\u0652\u0670]", "", text)]
+    last: Exception | None = None
+    for attempt, t in enumerate(variants):
         try:
-            proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or None  # corporate networks
-            await edge_tts.Communicate(text, voice, rate=rate, proxy=proxy).save(str(out))
+            await edge_tts.Communicate(t, voice, rate=rate, proxy=proxy).save(str(out))
+            if t != text:
+                print("      (read without diacritics: the service refused the diacritised line)")
             return
-        except Exception as exc:  # network hiccups: retry with backoff
-            if attempt == 3:
-                raise SystemExit(f"Edge TTS failed ({exc}). Check your internet connection, or use --engine piper.") from exc
+        except Exception as exc:  # network hiccups or a refused line: retry with backoff
+            last = exc
             await asyncio.sleep(2 * (attempt + 1))
+    raise SystemExit(f"Edge TTS failed ({last}). Check your internet connection, or use --engine piper.")
 
 
 def synth_piper(text: str, out: Path, model: str, length_scale: float) -> None:
