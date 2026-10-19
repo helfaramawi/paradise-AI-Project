@@ -77,7 +77,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Restore | `ops\restore.bat [backup]` | `ops/restore.sh [backup]` | Lists the backups, asks which one, asks you to type YES, takes a safety backup, then restores the database, n8n data and (on a machine without one) `.env`. It also restores older single-file `.dump` backups |
 | Update | `ops\update.bat` | `ops/update.sh` | Backs up, runs `git pull origin main`, rebuilds and restarts |
 | Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
-| Egyptian demo voice-over | `ops\make-voiceover-eg.bat` | `ops/make-voiceover-eg.sh` | Adds the Egyptian female voice to the collection-agency demo video (see DEMO_SCRIPT.md) |
+| Port Said demo voice-over | `ops\make-voiceover-collections.bat` | `ops/make-voiceover-collections.sh` | Adds the female voice to the Port Said Free Zone collection-agency demo video (see DEMO_SCRIPT.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
 

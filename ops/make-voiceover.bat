@@ -3,7 +3,7 @@ rem Adds a natural Arabic voice-over to the demo video (Microsoft neural voices,
 rem   make-voiceover.bat            -> Egyptian male voice  (ar-EG-ShakirNeural)
 rem   make-voiceover.bat female     -> Egyptian female voice (ar-EG-SalmaNeural)
 rem   make-voiceover.bat ar-SA-HamedNeural   -> any Edge voice name
-rem   make-voiceover.bat female future-mirror-demo-eg  -> another video (2nd argument = file name without .mp4)
+rem   make-voiceover.bat female future-mirror-demo-collections  -> another video (2nd argument = file name without .mp4)
 rem Put the video (.mp4) and its .srt in docs\video first (default: future-mirror-demo-ar).
 rem Optional background music: save it as docs\video\music.mp3 (or .m4a / .wav); it is kept low and ducked under the voice.
 setlocal
