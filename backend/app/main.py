@@ -48,10 +48,12 @@ def migrate_and_seed() -> None:
     cfg.set_main_option("script_location", str(Path(__file__).resolve().parent.parent / "alembic"))
     cfg.set_main_option("sqlalchemy.url", s.database_url)
     command.upgrade(cfg, "head")
-    if s.seed_demo_data:
-        from .seed import seed_all
-        with dbmod.SessionLocal() as db:
+    from .seed import seed_all, sync_policies
+    with dbmod.SessionLocal() as db:
+        if s.seed_demo_data:
             seed_all(db)
+        else:
+            sync_policies(db)  # policies added in a new release reach existing tenants (e.g. GOV-017/018)
 
 
 @asynccontextmanager
