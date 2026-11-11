@@ -1,6 +1,6 @@
 # Deployment Guide
 
-For a complete on-premises guide with sizing, technical requirements, firewall rules and step-by-step installation, see [docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx).
+For a complete on-premises guide with sizing, technical requirements, firewall rules and step-by-step installation, see [docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx). An Arabic edition is in [docs/Future_Mirror_AI_OnPrem_Deployment_Guide_AR.docx](docs/Future_Mirror_AI_OnPrem_Deployment_Guide_AR.docx).
 
 ## 1. Components
 
