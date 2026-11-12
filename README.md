@@ -146,6 +146,8 @@ Results are in [`TEST_REPORT.md`](TEST_REPORT.md).
 | [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | REST + SSE API (OpenAPI at `/api/docs`) |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Docker, configuration, production hardening |
 | [DEMO_SCRIPT.md](DEMO_SCRIPT.md) | Guided demo |
+| [User guide (English)](docs/Future_Mirror_AI_User_Guide_EN.docx) · [Arabic](docs/Future_Mirror_AI_User_Guide_AR.docx) | Screen-by-screen guide for users and administrators, with screenshots (Word) |
+| [Deployment guide (English)](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx) · [Arabic](docs/Future_Mirror_AI_OnPrem_Deployment_Guide_AR.docx) | On-premises sizing, requirements, installation, operations and the SaaS plan (Word) |
 | [TEST_REPORT.md](TEST_REPORT.md) | What was tested and the results |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | Status, known limitations, backlog |
 
