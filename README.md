@@ -148,6 +148,7 @@ Results are in [`TEST_REPORT.md`](TEST_REPORT.md).
 | [DEMO_SCRIPT.md](DEMO_SCRIPT.md) | Guided demo |
 | [User guide (English)](docs/Future_Mirror_AI_User_Guide_EN.docx) · [Arabic](docs/Future_Mirror_AI_User_Guide_AR.docx) | Screen-by-screen guide for users and administrators, with screenshots (Word) |
 | [Deployment guide (English)](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx) · [Arabic](docs/Future_Mirror_AI_OnPrem_Deployment_Guide_AR.docx) | On-premises sizing, requirements, installation, operations and the SaaS plan (Word) |
+| [Feasibility study: SaaS vs on-premises (English)](docs/Future_Mirror_AI_SaaS_Feasibility_Study_EN.docx) · [Arabic](docs/Future_Mirror_AI_SaaS_Feasibility_Study_AR.docx) | Options, assumptions, Monte Carlo loss probabilities, sensitivity, and go/stop gates (Word). Model: `scripts/feasibility_model.py` |
 | [TEST_REPORT.md](TEST_REPORT.md) | What was tested and the results |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | Status, known limitations, backlog |
 
