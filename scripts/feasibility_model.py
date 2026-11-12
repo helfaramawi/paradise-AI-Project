@@ -1,4 +1,4 @@
-"""Feasibility Monte Carlo for the Arabic feasibility study (docs/Future_Mirror_AI_SaaS_Feasibility_Study_AR.docx).
+"""Feasibility Monte Carlo behind the feasibility study (docs/Future_Mirror_AI_SaaS_Feasibility_Study_EN.docx and _AR.docx).
 
 Compares SaaS only, on-premises only and hybrid (on-prem now, SaaS gated at month 12).
 Units: EGP million, monthly steps, 60 months; loss probabilities are reported at 36 and 60 months.
