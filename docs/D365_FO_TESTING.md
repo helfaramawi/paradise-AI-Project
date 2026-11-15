@@ -1,5 +1,7 @@
 # Testing Future Mirror with Dynamics 365 Finance & Operations (Arabic test data)
 
+> Arabic edition: [D365_FO_TESTING_AR.md](D365_FO_TESTING_AR.md)
+
 There are two ways to test the Dynamics 365 F&O connector:
 
 | | Local F&O simulator | Real F&O environment |
