@@ -140,6 +140,9 @@ def test_intake_parser_english_and_arabic():
     ar = parse_decision("نريد خفض التكاليف التشغيلية بنسبة ٢٠٪ خلال ستة أشهر دون إنهاء خدمة الموظفين مع الحفاظ على رضا العملاء")
     assert ar["language"] == "ar" and ar["cost_reduction_target_pct"] == 20 and ar["implementation_months"] == 6
     assert ar["no_terminations"] and ar["protect_csat"]
+    # "تكاليف التشغيل" (no article) is as common as "التكاليف التشغيلية".
+    ar2 = parse_decision("خفض تكاليف التشغيل في الشركة بنسبة 8% خلال 12 شهراً دون التأثير على جودة الخدمة")
+    assert ar2["category"] == "opex_optimization" and ar2["cost_reduction_target_pct"] == 8
 
 
 def test_intake_strips_control_chars():

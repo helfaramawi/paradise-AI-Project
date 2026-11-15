@@ -6,6 +6,7 @@ rem   make-voiceover.bat ar-SA-HamedNeural   -> any Edge voice name
 rem   make-voiceover.bat female future-mirror-demo-collections  -> another video (2nd argument = file name without .mp4)
 rem Put the video (.mp4) and its .srt in docs\video first (default: future-mirror-demo-ar).
 rem Optional background music: save it as docs\video\music.mp3 (or .m4a / .wav); it is kept low and ducked under the voice.
+rem Or name a file with FM_MUSIC (e.g. set FM_MUSIC=docs\video\music-calm.mp3) and its level with FM_MUSIC_VOLUME (dB below the voice, e.g. -26).
 setlocal
 set "FM_RC=0"
 cd /d "%~dp0.."
@@ -49,6 +50,8 @@ echo Installing / updating the voice engine ^(edge-tts^) ...
 echo Generating the Arabic voice-over with %VOICE% ^(about 3-5 minutes^) ...
 set "MUSIC_ARG="
 for %%m in (docs\video\music.mp3 docs\video\music.m4a docs\video\music.wav) do if exist "%%m" set "MUSIC_ARG=--music %%m"
+if defined FM_MUSIC if exist "%FM_MUSIC%" set "MUSIC_ARG=--music %FM_MUSIC%"
+if defined MUSIC_ARG if defined FM_MUSIC_VOLUME set "MUSIC_ARG=%MUSIC_ARG% --music-volume %FM_MUSIC_VOLUME%"
 if defined MUSIC_ARG (echo Background music found: %MUSIC_ARG:--music =%) else (echo No background music ^(to add some, save it as docs\video\music.mp3^))
 %PY% scripts\voiceover\make_voiceover.py --video docs\video\%VIDEO%.mp4 --srt docs\video\%VIDEO%.srt --voice %VOICE% %RATE_ARG% %MUSIC_ARG% || goto fail
 echo.
