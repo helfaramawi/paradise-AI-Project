@@ -37,6 +37,7 @@ export const CONNECTOR_FIELDS: Record<string, Field[]> = {
     { key: "account_field", placeholder: "LedgerAccount", advanced: true },
     { key: "amount_field", placeholder: "AccountingCurrencyAmount", advanced: true },
     { key: "date_field", placeholder: "AccountingDate", advanced: true },
+    { key: "authority", type: "url", placeholder: "https://login.microsoftonline.com", advanced: true },
   ],
   d365_bc: [
     { key: "tenant_id", placeholder: "00000000-0000-0000-0000-000000000000", required: true },

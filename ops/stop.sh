@@ -3,5 +3,5 @@
 source "$(dirname "$0")/_common.sh"
 check_docker
 echo "Stopping Future Mirror AI ..."
-docker compose --profile automation down
+docker compose --profile automation --profile d365sim down
 echo "Stopped. Your data is kept. Run ops/start.sh to start again."
