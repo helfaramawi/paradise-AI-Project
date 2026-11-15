@@ -196,6 +196,7 @@ def create_app(settings: Settings | None = None, data: Dataset | None = None) ->
 <h2>البيانات</h2><table><tr><th>الكيان</th>{"".join(f"<th>{c}</th>" for c in companies)}</tr>{rows}
 <tr><td>MainAccounts</td><td colspan="{len(companies)}"><a href="/browse/MainAccounts">{len(ds.main_accounts)}</a></td></tr></table>
 <p>القيود من {first} إلى {last}.</p>
+<p><a href="/explorer">مستكشف OData</a>: سجّل الدخول بالسر ثم جرّب الاستعلامات التي يرسلها الموصّل.</p>
 <h2>بيانات الاتصال</h2><table dir="ltr">
 <tr><td>Environment URL / Authority</td><td>{html.escape(base_url(request))} (from Docker: https://d365fo-sim:8443)</td></tr>
 <tr><td>Tenant ID</td><td>{cfg.tenant_id}</td></tr><tr><td>Client ID</td><td>{cfg.client_id}</td></tr>
@@ -221,7 +222,106 @@ def create_app(settings: Settings | None = None, data: Dataset | None = None) ->
                                   f'<p><a href="/">رجوع</a> · {len(rows):,} سجل</p><div class="scroll"><table>'
                                   f"<tr>{head}</tr>{body}</table></div><p class='nav'>{nav}</p>"))
 
+    @app.get("/explorer", response_class=HTMLResponse)
+    def explorer() -> str:
+        """Interactive OData explorer: sign in with the client secret, then run the connector's queries."""
+        presets = [
+            ("مستند الخدمة", "/data"),
+            ("البيانات الوصفية", "/data/$metadata"),
+            ("الحسابات الرئيسية", "/data/MainAccounts?$select=MainAccountId,Name,MainAccountType&$top=8"),
+            ("عملاء بورسعيد", "/data/CustomersV3?cross-company=true&$filter=AddressCity eq 'بورسعيد'"
+                              "&$select=dataAreaId,CustomerAccount,OrganizationName,CreditLimit&$count=true"),
+            ("قيود الرواتب", "/data/GeneralJournalAccountEntries?cross-company=true&$filter=dataAreaId eq 'egmf' "
+                             "and MainAccount eq '610100' and AccountingDate ge 2026-10-01T00:00:00Z"
+                             "&$select=AccountingDate,LedgerAccount,Text,AccountingCurrencyAmount"),
+            ("ما يقرؤه الموصّل", "/data/GeneralJournalAccountEntries?cross-company=true&$filter=AccountingDate ge "
+                                 "2025-11-01T00:00:00Z and AccountingDate le 2026-10-31T23:59:59Z and dataAreaId eq "
+                                 "'egmf'&$select=LedgerAccount,AccountingCurrencyAmount"),
+            ("خطأ: حقل غير موجود", "/data/GeneralJournalAccountEntries?$select=Amount&$top=1"),
+        ]
+        buttons = "".join(f'<button class="preset" data-q="{html.escape(q)}">{html.escape(label)}</button>'
+                          for label, q in presets)
+        return EXPLORER.replace("{{TENANT}}", cfg.tenant_id).replace("{{CLIENT}}", cfg.client_id) \
+            .replace("{{PRESETS}}", buttons)
+
     return app
+
+
+EXPLORER = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>مستكشف OData</title><style>
+body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:0;color:#0f172a;background:#f1f5f9}
+header{background:#0f172a;color:#f8fafc;padding:14px 24px;display:flex;gap:16px;align-items:baseline}
+header h1{font-size:20px;margin:0} header span{color:#94a3b8;font-size:13px} header a{color:#93c5fd;margin-inline-start:auto}
+main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px 24px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+.card h2{font-size:15px;margin:0 0 10px} label{display:block;font-size:12px;color:#475569;margin:8px 0 3px}
+input{width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font:13px Consolas,monospace;direction:ltr}
+button{font:inherit;font-size:13px;border:0;border-radius:6px;padding:7px 12px;cursor:pointer}
+#btn-token,#btn-run{background:#1d4ed8;color:#fff;margin-top:10px}
+.preset{display:block;width:100%;text-align:start;background:#eef2ff;color:#1e3a8a;margin-top:6px}
+.preset.on{background:#1d4ed8;color:#fff}
+#tok{font-size:12px;margin-top:8px;color:#64748b;direction:ltr;text-align:left;word-break:break-all}
+#tok.ok{color:#047857} #tok.bad{color:#b91c1c}
+.req{display:flex;gap:8px;align-items:center} .req input{flex:1} .req b{font:13px Consolas,monospace;color:#047857}
+#status{font-size:13px;margin:10px 0 6px;color:#334155} #status.bad{color:#b91c1c}
+pre{direction:ltr;text-align:left;background:#0b1220;color:#e2e8f0;border-radius:8px;padding:14px;margin:0;
+  height:560px;overflow:auto;font:13px/1.55 Consolas,monospace;white-space:pre-wrap}
+.k{color:#93c5fd}.s{color:#fcd34d}.n{color:#86efac}
+</style></head><body>
+<header><h1>مستكشف OData</h1><span>محاكي Dynamics 365 F&amp;O · بيانات اختبار وهمية</span><a href="/">الرئيسية</a></header>
+<main><div>
+<div class="card"><h2>١. تسجيل الدخول (Entra ID)</h2>
+<label>Tenant ID</label><input id="tenant" value="{{TENANT}}">
+<label>Client ID</label><input id="client" value="{{CLIENT}}">
+<label>Client secret</label><input id="secret" type="password" placeholder="FM_D365_FO_CLIENT_SECRET">
+<button id="btn-token">الحصول على رمز الدخول</button><div id="tok">لا يوجد رمز بعد</div></div>
+<div class="card" style="margin-top:16px"><h2>٢. استعلامات جاهزة</h2>{{PRESETS}}</div>
+</div><div class="card"><h2>٣. الطلب والاستجابة</h2>
+<div class="req"><b>GET</b><input id="url" value="/data"><button id="btn-run">تنفيذ</button></div>
+<div id="status">اختر استعلاماً أو اكتب رابطاً ثم اضغط تنفيذ.</div><pre id="out"></pre></div></main>
+<script>
+let token = "";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function color(json) {
+  return esc(json).replace(/("(?:[^"\\\\]|\\\\.)*")(\\s*:)?|\\b(-?\\d+(?:\\.\\d+)?|true|false|null)\\b/g,
+    (m, str, colon, num) => str ? (colon ? `<span class="k">${str}</span>${colon}` : `<span class="s">${str}</span>`)
+                                : `<span class="n">${num}</span>`);
+}
+$("btn-token").onclick = async () => {
+  const body = new URLSearchParams({grant_type: "client_credentials", client_id: $("client").value,
+    client_secret: $("secret").value, scope: location.origin + "/.default"});
+  const r = await fetch(`/${$("tenant").value}/oauth2/v2.0/token`, {method: "POST", body});
+  const j = await r.json();
+  if (r.ok) { token = j.access_token; $("tok").className = "ok";
+    $("tok").textContent = `Bearer ${token.slice(0, 18)}… · expires_in ${j.expires_in}s`; }
+  else { token = ""; $("tok").className = "bad"; $("tok").textContent = `${r.status} ${j.error}: ${j.error_description.split("\\r")[0]}`; }
+};
+async function run() {
+  const url = $("url").value.trim(), t0 = performance.now();
+  const r = await fetch(url, {headers: token ? {Authorization: "Bearer " + token} : {}});
+  const ms = Math.round(performance.now() - t0), text = await r.text();
+  let out = text, note = "";
+  try {
+    const j = JSON.parse(text);
+    if (Array.isArray(j.value)) {
+      note = ` · ${j.value.length.toLocaleString("en")} سجل في هذه الصفحة` +
+        (j["@odata.count"] !== undefined ? ` · العدد الكلي ${j["@odata.count"]}` : "") +
+        (j["@odata.nextLink"] ? " · توجد صفحة تالية (@odata.nextLink)" : "");
+      if (j.value.length > 6) j.value = [...j.value.slice(0, 6), `… و${(j.value.length - 6).toLocaleString("en")} سجل آخر`];
+    }
+    out = color(JSON.stringify(j, null, 2));
+  } catch { out = esc(text.replace(/></g, ">\\n<")); }
+  $("status").className = r.ok ? "" : "bad";
+  $("status").textContent = `HTTP ${r.status} · ${ms} ms${note}`;
+  $("out").innerHTML = out;
+}
+$("btn-run").onclick = run;
+document.querySelectorAll(".preset").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".preset").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); $("url").value = b.dataset.q; run();
+});
+</script></body></html>"""
 
 
 def _fmt(v: Any) -> str:

@@ -105,7 +105,7 @@ def parse_decision(question: str) -> dict[str, Any]:
         found.pop("annual_opex", None)
         found["detected"] = [d for d in found["detected"] if d not in ("cost_base", "protect_contracts")]
         found.pop("protect_contracts", None)
-    elif re.search(r"cost|expense|opex|تكالیف|التكاليف|مصروفات|نفقات", ql):
+    elif re.search(r"cost|expense|opex|تكالیف|تكاليف|مصروفات|نفقات", ql):
         found["category"] = "opex_optimization"
         found["domain"] = "opex"
     else:

@@ -80,6 +80,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Port Said demo voice-over | `ops\make-voiceover-collections.bat` | `ops/make-voiceover-collections.sh` | Adds the female voice to the Port Said Free Zone collection-agency demo video (see DEMO_SCRIPT.md) |
 | Hotel demo voice-over | `ops\make-voiceover-hotel.bat` | `ops/make-voiceover-hotel.sh` | Adds the female voice to the Arakan hotel demo video (see DEMO_SCRIPT.md) |
 | Dynamics 365 F&O simulator | `ops\d365-sim.bat [stop]` | `ops/d365-sim.sh [stop]` | Starts a local Dynamics 365 F&O simulator with Arabic test data on https://localhost:8443 and connects the F&O connection to it (see docs/D365_FO_TESTING.md) |
+| Dynamics 365 demo voice-over | `ops\make-voiceover-d365.bat` | `ops/make-voiceover-d365.sh` | Adds the female voice and calm background music to the Dynamics 365 F&O demo video (see DEMO_SCRIPT.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
 

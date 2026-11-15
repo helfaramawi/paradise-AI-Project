@@ -3,6 +3,7 @@
 #   ops/make-voiceover.sh [male|female|<edge voice name>] [video name without .mp4]
 # Put the video (.mp4) and its .srt in docs/video first (default: future-mirror-demo-ar).
 # Optional background music: docs/video/music.mp3 (or .m4a/.wav), kept low and ducked under the voice.
+# Or name a file with FM_MUSIC and its level with FM_MUSIC_VOLUME (dB below the voice, e.g. -26).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VOICE=ar-EG-ShakirNeural
@@ -15,6 +16,8 @@ done
 python3 -m pip install --quiet --upgrade edge-tts
 MUSIC=()
 for m in docs/video/music.mp3 docs/video/music.m4a docs/video/music.wav; do [ -f "$m" ] && MUSIC=(--music "$m"); done
+[ -n "${FM_MUSIC:-}" ] && [ -f "$FM_MUSIC" ] && MUSIC=(--music "$FM_MUSIC")
+[ ${#MUSIC[@]} -gt 0 ] && [ -n "${FM_MUSIC_VOLUME:-}" ] && MUSIC+=(--music-volume "$FM_MUSIC_VOLUME")
 python3 scripts/voiceover/make_voiceover.py --video docs/video/$VIDEO.mp4 \
   --srt docs/video/$VIDEO.srt --voice "$VOICE" --rate "${FM_VOICE_RATE:-0}" "${MUSIC[@]}"
 echo "Done: docs/video/$VIDEO-voice.mp4"

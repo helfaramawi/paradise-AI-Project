@@ -158,3 +158,11 @@ def test_odata_queries_and_browser_page():
     page = c.get("/").text
     assert "شركة المستقبل للصناعات الغذائية" in page and S.client_id in page
     assert "الرواتب" in c.get("/browse/MainAccounts").text
+
+
+def test_odata_explorer_page():
+    c = TestClient(create_app(S, DATA), base_url=SIM)
+    page = c.get("/explorer").text
+    assert S.tenant_id in page and S.client_id in page and S.client_secret not in page
+    assert page.count('class="preset"') == 7 and "$metadata" in page
+    assert "/explorer" in c.get("/").text
