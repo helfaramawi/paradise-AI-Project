@@ -3,9 +3,9 @@
     python scripts/voiceover/make_calm_music.py [out.mp3] [--minutes 4]
 
 Slow pad chords (Am - Fmaj7 - C - G, 8 seconds each) built from soft detuned sines with long
-attack and release, a quiet low drone, sparse bell notes from the A minor pentatonic scale and a
-light stereo echo. No drums and nothing in the 1-4 kHz band where speech sits, so it stays behind
-the voice. The end fades into the start, so the voice-over tool can loop it seamlessly.
+attack and release, an airy octave-up layer, a slow arpeggio, a quiet low drone, sparse bell notes
+from the A minor pentatonic scale and a light stereo echo. No drums, and a soft top end (low-pass
+at 3.2 kHz), so it stays behind the voice yet is still heard on laptop and phone speakers. The end fades into the start, so the voice-over tool can loop it seamlessly.
 Requires numpy and ffmpeg.
 """
 
@@ -48,6 +48,8 @@ def pad(notes: list[int], seconds: float, rng: np.random.Generator) -> np.ndarra
             ph = rng.uniform(0, 2 * np.pi)
             wob = 1 + 0.002 * np.sin(2 * np.pi * 0.11 * t + ph)
             tone = np.sin(2 * np.pi * (f + det) * wob * t + ph) + 0.18 * np.sin(2 * np.pi * 2 * (f + det) * t + ph)
+            if i >= 2:  # an airy octave-up layer, so small speakers (laptops, phones) still carry the harmony
+                tone += 0.55 * np.sin(2 * np.pi * 2 * (f + det) * wob * t + ph * 1.7)
             out[:, side] += level * tone
     return out * envelope(n, 2.8, 3.2)[:, None]
 
@@ -80,6 +82,12 @@ def compose(minutes: float, seed: int = 7) -> np.ndarray:
         start = int(k * CHORD_S * SR)
         p = pad(CHORDS[k % len(CHORDS)], CHORD_S + 3.5, rng)  # overlap the next chord
         mix[start:start + len(p)] += p
+        for j, m in enumerate(CHORDS[k % len(CHORDS)][2:]):  # slow, soft arpeggio, one note every 2 s
+            b = 0.55 * bell(m + 12, 3.5)
+            at = start + int((0.4 + 2.0 * j) * SR)
+            pan = 0.35 + 0.15 * j
+            mix[at:at + len(b), 0] += b * (1 - pan)
+            mix[at:at + len(b), 1] += b * pan
         if rng.random() < 0.55:  # a sparse bell, never on every chord
             b = bell(int(rng.choice(BELL)))
             at = start + int(rng.uniform(1.5, 5.5) * SR)
@@ -96,7 +104,7 @@ def compose(minutes: float, seed: int = 7) -> np.ndarray:
     echo = np.zeros_like(mix)
     echo[delay:, 0] = mix[:-delay, 1] * 0.22
     echo[delay:, 1] = mix[:-delay, 0] * 0.22
-    mix = lowpass(lowpass(mix + echo, 1800.0), 1800.0)  # keep it soft, out of the speech band
+    mix = lowpass(lowpass(mix + echo, 3200.0), 3200.0)  # soft top end, little energy where speech is clearest
     return mix / np.max(np.abs(mix)) * 0.7
 
 
