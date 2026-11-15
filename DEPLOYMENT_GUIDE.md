@@ -56,6 +56,7 @@ The CA is passed as a BuildKit secret and is **not** stored in the images. The i
 | `FM_N8N_BASE_URL` / `FM_N8N_API_KEY` | — | enables live webhook delivery |
 | `FM_EXTERNAL_ACTIONS_ENABLED` | **false** | keep false in the MVP (GOV-003 / GOV-014) |
 | `FM_ODOO_API_KEY`, `FM_D365_FO_CLIENT_SECRET`, `FM_D365_BC_CLIENT_SECRET`, `FM_SAP_PASSWORD`, `FM_REST_TOKEN`, `FM_SQL_PASSWORD` | — | connector secrets (see §8) |
+| `FM_D365_CA_BUNDLE` | — | extra CA file (PEM) the Dynamics 365 connectors trust, e.g. `/certs/d365sim/ca.pem` for the local F&O simulator (see §8) |
 | `FM_SKIP_STARTUP_MIGRATIONS` | — | set `1` to run migrations as a separate job |
 
 ## 4. Production hardening checklist
@@ -113,7 +114,14 @@ After setting a secret, restart the backend with `docker compose up -d backend`.
    **Business Central:** Microsoft Entra applications → add the client ID, grant consent and assign read-only permission sets (e.g. `D365 READ`).
 4. Allow outbound HTTPS from the backend to `login.microsoftonline.com` and to the F&O environment or `api.businesscentral.dynamics.com`.
 
-The connectors use the client-credentials flow, read `GeneralJournalAccountEntries` (F&O) or `generalLedgerEntries` (BC) for the configured period, follow `@odata.nextLink` paging and stop at `max_rows` (default 500,000). They never write to the ERP. **Status: implemented and tested against mocked Entra ID / OData responses; not yet verified against a live tenant.**
+The connectors use the client-credentials flow, read `GeneralJournalAccountEntries` (F&O) or `generalLedgerEntries` (BC) for the configured period, follow `@odata.nextLink` paging and stop at `max_rows` (default 500,000). They never write to the ERP. **Status: implemented and tested against mocked Entra ID / OData responses and, for F&O, end to end against the local simulator below; not yet verified against a live tenant.**
+
+**Dynamics 365 F&O simulator (testing only).** `tools/d365fo-simulator` is a local test double of F&O for demos and testing without a Microsoft tenant: it answers the Entra ID client-credentials sign-in and the read-only OData entities over HTTPS, with synthetic Arabic data (two fictitious Egyptian companies, EGMF and EGHS; 32 main accounts; 60 customers; 22 vendors; about 4,450 ledger lines from January 2025 to October 2026). It is not a Microsoft product; do not run it on a production server.
+
+- Start: `./ops/d365-sim.sh` (Windows: `ops\d365-sim.bat`). It adds `FM_D365_FO_CLIENT_SECRET=fm-sim-secret-2026` and `FM_D365_CA_BUNDLE=/certs/d365sim/ca.pem` to `.env` if missing, runs `docker compose --profile d365sim up -d --build`, configures and tests the F&O connection. Then press **Sync**; stop with `./ops/d365-sim.sh stop`.
+- Port 8443/tcp (`FM_D365_SIM_PORT`); browse the data at https://localhost:8443. Its local CA is created in the volume `d365sim-certs`, mounted read-only into the backend.
+- `FM_D365_CA_BUNDLE` adds that CA (or a TLS-inspecting proxy's CA) to the certificates the D365 connectors trust; verification stays on. Remove the line when you switch to a real environment, set the real client secret, and clear **Sign-in authority** in the connection settings.
+- Full steps, an Excel import package with the same Arabic data for a real F&O environment, and troubleshooting: [docs/D365_FO_TESTING.md](docs/D365_FO_TESTING.md) ([Arabic](docs/D365_FO_TESTING_AR.md)).
 
 **SAP S/4HANA.** Create a communication arrangement for scenario `SAP_COM_0002` (Finance – Posting Integration) or any arrangement that exposes `API_JOURNALENTRYITEMBASIC_SRV`, with a communication user that has read access. The connector reads `A_JournalEntryItemBasic` (`GLAccount`, `AmountInCompanyCodeCurrency`) filtered by company code, ledger and posting date. Leading zeros are stripped from G/L accounts (`0061000000` → `61000000`), so map prefixes such as `61`.
 
