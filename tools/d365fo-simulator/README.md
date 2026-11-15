@@ -5,7 +5,7 @@ Entra ID client-credentials sign-in and the read-only OData data entities over H
 synthetic Arabic data for two fictitious Egyptian companies. It is not a Microsoft product.
 
 Start it with `ops/d365-sim.sh` (Windows: `ops\d365-sim.bat`) and read
-[docs/D365_FO_TESTING.md](../../docs/D365_FO_TESTING.md).
+[docs/D365_FO_TESTING.md](../../docs/D365_FO_TESTING.md) (Arabic: [D365_FO_TESTING_AR.md](../../docs/D365_FO_TESTING_AR.md)).
 
 | File | Purpose |
 |---|---|
