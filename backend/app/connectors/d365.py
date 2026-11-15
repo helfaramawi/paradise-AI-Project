@@ -11,13 +11,18 @@ categories by longest prefix, and reconcile onto the canonical cost profile.
 The client secret is read from the environment (``FM_D365_FO_CLIENT_SECRET`` /
 ``FM_D365_BC_CLIENT_SECRET``), never from the stored config. Entity and field names follow
 Microsoft's documented defaults and are overridable in config, because F&O deployments
-frequently expose customised entities. Not verified against a live tenant in this environment.
+frequently expose customised entities. ``authority`` overrides the Entra ID sign-in host, and
+``FM_D365_CA_BUNDLE`` adds a private CA to the trusted certificates; both are used to test against
+the local F&O simulator in ``tools/d365fo-simulator``. Not verified against a live tenant.
 """
 
 from __future__ import annotations
 
+import os
+import ssl
 from typing import Any
 
+import certifi
 import httpx
 
 from ..simulation.assumptions import Baseline
@@ -25,8 +30,23 @@ from .base import ConnectorError, ConnectorResult, ReadOnlyConnector, bucket_by_
 
 DEFAULT_AUTHORITY = "https://login.microsoftonline.com"
 DEFAULT_MAX_ROWS = 500_000
+CA_BUNDLE_ENV = "FM_D365_CA_BUNDLE"
 
 
+def _tls_verify() -> ssl.SSLContext | bool:
+    """Public CAs, plus the PEM file in FM_D365_CA_BUNDLE when set (a private CA, e.g. the local
+    F&O simulator or a TLS-inspecting proxy). Certificate checks are never switched off."""
+    extra = os.environ.get(CA_BUNDLE_ENV, "").strip()
+    if not extra:
+        return True
+    if not os.path.isfile(extra):
+        raise ConnectorError(f"{CA_BUNDLE_ENV} points to a file that does not exist: {extra}")
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    try:
+        ctx.load_verify_locations(cafile=extra)
+    except ssl.SSLError as exc:
+        raise ConnectorError(f"{CA_BUNDLE_ENV} is not a valid PEM certificate file: {exc}") from exc
+    return ctx
 
 
 class _EntraODataConnector(ReadOnlyConnector):
@@ -54,7 +74,8 @@ class _EntraODataConnector(ReadOnlyConnector):
             raise ConnectorError(f"Client secret not set (environment variable FM_{self.kind.upper()}_CLIENT_SECRET)")
 
     def _client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self.config.get("timeout_s", 30)), transport=self._transport)
+        return httpx.Client(timeout=float(self.config.get("timeout_s", 30)), transport=self._transport,
+                            verify=_tls_verify())
 
     def _token(self, client: httpx.Client) -> str:
         authority = str(self.config.get("authority") or DEFAULT_AUTHORITY).rstrip("/")

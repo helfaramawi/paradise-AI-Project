@@ -7,11 +7,12 @@ cd "$(dirname "$0")/.."
 CA="${CA_BUNDLE:-}"
 SECRET=()
 [ -n "$CA" ] && SECRET=(--secret "id=extra_ca,src=$CA")
-for svc in backend frontend; do
+for svc in backend frontend d365fo-sim; do
+  ctx="./$svc"; [ "$svc" = d365fo-sim ] && ctx="./tools/d365fo-simulator"
   docker build --network host \
     --build-arg HTTP_PROXY="${HTTP_PROXY:-${http_proxy:-}}" --build-arg HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-}}" \
     --build-arg http_proxy="${HTTP_PROXY:-${http_proxy:-}}" --build-arg https_proxy="${HTTPS_PROXY:-${https_proxy:-}}" \
     --build-arg NO_PROXY="${NO_PROXY:-localhost,127.0.0.1}" "${SECRET[@]}" \
-    -t "future-mirror-$svc" "./$svc"
+    -t "future-mirror-$svc" "$ctx"
 done
-echo "Built future-mirror-backend and future-mirror-frontend. Start with: docker compose up -d"
+echo "Built future-mirror-backend, -frontend and -d365fo-sim. Start with: docker compose up -d"

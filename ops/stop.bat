@@ -6,7 +6,7 @@ if /i "%~1"=="/nopause" set "FM_NO_PAUSE=1"
 cd /d "%~dp0.."
 call "%~dp0_common.bat" :checkdocker || goto fail
 echo Stopping Future Mirror AI ...
-docker compose --profile automation down || goto fail
+docker compose --profile automation --profile d365sim down || goto fail
 echo Stopped. Your data is kept. Run start.bat to start again.
 goto done
 :fail

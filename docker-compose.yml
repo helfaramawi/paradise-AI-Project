@@ -1,6 +1,7 @@
 # Future Mirror AI — local / on-premises deployment
 #   docker compose up -d --build                      # core platform on http://localhost:8080
 #   docker compose --profile automation up -d         # + n8n on http://localhost:5678
+#   docker compose --profile d365sim up -d --build    # + Dynamics 365 F&O simulator on https://localhost:8443 (ops/d365-sim)
 name: future-mirror
 
 services:
@@ -30,6 +31,10 @@ services:
       FM_ENVIRONMENT: ${FM_ENVIRONMENT:-development}
       FM_CORS_ORIGINS: '["http://localhost:8080"]'
       FM_N8N_BASE_URL: ${FM_N8N_BASE_URL:-}
+    volumes:
+      # CA certificate of the local F&O simulator (empty unless the d365sim profile has run).
+      # Trusted only when FM_D365_CA_BUNDLE=/certs/d365sim/ca.pem is set in .env.
+      - d365sim-certs:/certs/d365sim:ro
     depends_on:
       db:
         condition: service_healthy
@@ -66,6 +71,21 @@ services:
       - n8ndata:/home/node/.n8n
     restart: unless-stopped
 
+  d365fo-sim:
+    build: ./tools/d365fo-simulator
+    image: future-mirror-d365fo-sim
+    profiles: ["d365sim"]
+    ports:
+      - "${FM_D365_SIM_PORT:-8443}:8443"
+    environment:
+      # Must match the backend's FM_D365_FO_CLIENT_SECRET (both read from .env).
+      SIM_CLIENT_SECRET: ${FM_D365_FO_CLIENT_SECRET:-fm-sim-secret-2026}
+      SIM_PUBLIC_URLS: https://d365fo-sim:8443,https://localhost:8443,https://localhost:${FM_D365_SIM_PORT:-8443}
+    volumes:
+      - d365sim-certs:/certs
+    restart: unless-stopped
+
 volumes:
   pgdata:
   n8ndata:
+  d365sim-certs:

@@ -29,7 +29,7 @@ Future Mirror AI is a decision-simulation platform for enterprises. You describe
 | RBAC (8 roles, 19 permissions), JWT, tenant isolation, tamper-evident audit chain, emergency stop | ✅ working |
 | Synthetic ERP connector, CSV/Excel import with reconciliation | ✅ working |
 | Odoo XML-RPC adapter | ⚠️ implemented, **not verified** against a live Odoo instance |
-| Dynamics 365 F&O and Business Central OData connectors, with a settings form | ⚠️ implemented and tested against mocked endpoints, **not verified** against a live tenant |
+| Dynamics 365 F&O and Business Central OData connectors, with a settings form | ⚠️ implemented; F&O tested end to end against the local F&O simulator with Arabic test data (`ops/d365-sim`), **not verified** against a live tenant |
 | SAP S/4HANA (OData), generic REST API and SQL database connectors, with settings forms | ⚠️ implemented; SQL verified end to end against PostgreSQL 16, SQL Server 2022 and MySQL 8.4, SAP/REST tested against mocked endpoints |
 | n8n automation (dry-run, idempotency, approval gates, retries) | ✅ dry-run working; live delivery needs an n8n URL (`FM_N8N_BASE_URL`) |
 | Docker Compose (PostgreSQL, API, nginx reverse proxy, optional n8n) | ✅ built and verified |
@@ -79,6 +79,7 @@ The `ops/` folder has ready-made scripts. On Windows, double-click the `.bat` fi
 | Demo voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` | Adds a natural Arabic voice to the recorded demo video (see DEMO_SCRIPT.md) |
 | Port Said demo voice-over | `ops\make-voiceover-collections.bat` | `ops/make-voiceover-collections.sh` | Adds the female voice to the Port Said Free Zone collection-agency demo video (see DEMO_SCRIPT.md) |
 | Hotel demo voice-over | `ops\make-voiceover-hotel.bat` | `ops/make-voiceover-hotel.sh` | Adds the female voice to the Arakan hotel demo video (see DEMO_SCRIPT.md) |
+| Dynamics 365 F&O simulator | `ops\d365-sim.bat [stop]` | `ops/d365-sim.sh [stop]` | Starts a local Dynamics 365 F&O simulator with Arabic test data on https://localhost:8443 and connects the F&O connection to it (see docs/D365_FO_TESTING.md) |
 
 To back up automatically on Windows, create a daily task in Task Scheduler that runs `ops\backup.bat /nopause` (on macOS/Linux, a cron job running `ops/backup.sh`).
 
@@ -149,6 +150,7 @@ Results are in [`TEST_REPORT.md`](TEST_REPORT.md).
 | [User guide (English)](docs/Future_Mirror_AI_User_Guide_EN.docx) · [Arabic](docs/Future_Mirror_AI_User_Guide_AR.docx) | Screen-by-screen guide for users and administrators, with screenshots (Word) |
 | [Deployment guide (English)](docs/Future_Mirror_AI_OnPrem_Deployment_Guide.docx) · [Arabic](docs/Future_Mirror_AI_OnPrem_Deployment_Guide_AR.docx) | On-premises sizing, requirements, installation, operations and the SaaS plan (Word) |
 | [Feasibility study: SaaS vs on-premises (English)](docs/Future_Mirror_AI_SaaS_Feasibility_Study_EN.docx) · [Arabic](docs/Future_Mirror_AI_SaaS_Feasibility_Study_AR.docx) | Options, assumptions, Monte Carlo loss probabilities, sensitivity, and go/stop gates (Word). Model: `scripts/feasibility_model.py` |
+| [D365 F&O testing](docs/D365_FO_TESTING.md) | Local F&O simulator with Arabic data, Arabic import package for a real F&O environment, and connection steps |
 | [TEST_REPORT.md](TEST_REPORT.md) | What was tested and the results |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | Status, known limitations, backlog |
 
@@ -171,4 +173,5 @@ frontend/           React + TypeScript + Vite + Tailwind executive cockpit
 automation/n8n/     importable n8n workflows, one per automation scenario (see its README)
 docs/               screenshots, OpenAPI export
 scripts/            perf test, proxy-aware docker build
+tools/d365fo-simulator/  local Dynamics 365 F&O simulator (Arabic test data) and its Excel import package
 ```
