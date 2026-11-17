@@ -50,8 +50,10 @@ or more `python -m app.worker` processes, behind nginx (see `frontend/nginx.conf
 * Logs: JSON lines on stdout with request id, path, status, latency.
 * Deadline alerts: call `POST /api/v1/deadlines/scan` per organisation (button in the UI) or schedule it (cron /
   n8n) daily. *A built-in scheduler is not yet included.*
-* Backups: `ops/backup.sh [dir]` (pg_dump custom format + storage archive + SHA256SUMS); restore with
-  `ops/restore.sh <dir>` (verifies checksums; destructive). Recommended: nightly backup, 30-day retention, off-site
-  copy, quarterly restore drill.
+* Backups and recovery: `ops\backup.bat` / `ops/backup.sh` create a verified backup (database dump test-restored
+  into a scratch database; every stored file checked against its SHA-256); `ops\schedule-backup.bat` schedules it
+  daily; `ops\restore.bat` / `ops/restore.sh` restore with a safety backup first and an integrity check after.
+  Full procedures, including disaster recovery on a new machine: `docs/OPERATIONS_GUIDE.md`. Recommended: nightly
+  backup, 30-day retention, an off-machine copy (`HAQQ_BACKUP_COPY_TO`), quarterly restore drill.
 * Migrations: `alembic upgrade head` (runs automatically in the backend container).
 * Scaling: stateless API (except the in-process rate limiter) → horizontal; add workers for OCR-heavy tenants.

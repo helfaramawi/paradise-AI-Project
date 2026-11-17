@@ -17,3 +17,12 @@ All data is fictional DEMO data; amounts are illustrative, not proven claims or 
 | 10 | 14:00 | Deadline calendar / WH-02 claims | Claim pipeline through to collection; approved vs collected. Close with the pilot offer. |
 
 Reset before each demo: `python -m app.demo.seed --reset`.
+
+## Recorded video with Arabic voice-over
+
+`ops\record-demo.bat` records a ~10-minute Arabic walkthrough of the real app (10 chapters following the table
+above, captions and chapter cards rendered in the browser) into `docs/video/haqq-demo-ar.mp4` plus the narration
+`haqq-demo-ar.srt`. `ops\make-voiceover.bat` (or `make-voiceover.bat female`) then speaks each caption with Microsoft's
+Egyptian neural voices (`ar-EG-ShakirNeural` / `ar-EG-SalmaNeural`, needs internet), adds the calm background music
+low under the voice and writes `docs/video/haqq-demo-ar-voice.mp4`. Details: `docs/OPERATIONS_GUIDE.md` §5.
+Videos are not committed to Git (size); keep the final MP4 in your shared drive.

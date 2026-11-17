@@ -68,10 +68,30 @@ API docs: http://localhost:8000/api/docs.
 
 Docker: `cp .env.example .env && docker compose up -d --build` (see [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)).
 
+## Operations scripts (`haqq/ops`)
+
+| Task | Windows | macOS / Linux |
+|---|---|---|
+| Start and open HAQQ | `ops\start.bat` | `ops/start.sh` |
+| Stop (data kept) | `ops\stop.bat` | `ops/stop.sh` |
+| Verified backup (database + documents + settings) | `ops\backup.bat` | `ops/backup.sh` |
+| Daily automatic backup | `ops\schedule-backup.bat [HH:MM]` | cron |
+| Restore (safety backup first, integrity re-check after) | `ops\restore.bat [name]` | `ops/restore.sh [name]` |
+| Update (verified backup → git pull → rebuild) | `ops\update.bat` | `ops/update.sh` |
+| Load / reset DEMO data | `ops\seed-demo.bat [reset]` | `ops/seed-demo.sh [reset]` |
+| Record the Arabic demo video | `ops\record-demo.bat` | `ops/record-demo.sh` |
+| Add the Egyptian Arabic voice-over | `ops\make-voiceover.bat [female]` | `ops/make-voiceover.sh [female]` |
+
+Every backup is **verified before it is reported complete**: the database dump is test-restored into a scratch
+database and compared table by table, and every stored document is checked against the SHA-256 recorded when it was
+uploaded. Full procedures: [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) ·
+[الدليل بالعربية](docs/OPERATIONS_GUIDE_AR.md). Word editions of the user and operations guides (English and
+Arabic) are in [`docs/word`](docs/word) (rebuild with `python docs/build_word.py`).
+
 ## Tests
 
 ```bash
-cd haqq/backend && pytest -q          # 39 tests: engines, 8 acceptance scenarios, security, AI layer, eval gate
+cd haqq/backend && pytest -q          # 42 tests: engines, 8 acceptance scenarios, security, AI layer, backup integrity, eval gate
 ```
 ```bash
 cd haqq/frontend && npx playwright test   # 3 browser journeys (needs API + dev server + demo data)
@@ -94,7 +114,9 @@ cd haqq/backend && python -m eval.run_eval  # contract-engine evaluation report
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Docker, native, configuration, backup/restore, operations |
 | [COMMERCIAL_MODEL.md](COMMERCIAL_MODEL.md) | pricing hypotheses, MRR target, pilot plan |
 | [docs/API.md](docs/API.md) | endpoint reference |
-| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) · [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | user & administrator guides (EN/AR) |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) · [docs/USER_GUIDE_AR.md](docs/USER_GUIDE_AR.md) · [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | user guide (EN, AR) & administrator guide |
+| [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) · [docs/OPERATIONS_GUIDE_AR.md](docs/OPERATIONS_GUIDE_AR.md) | installation, backup, recovery, demo video (EN, AR) |
+| [docs/word](docs/word) | the user and operations guides as Word documents (EN, AR) |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 15-minute live business demonstration |
 | [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | roadmap, limitations & risk register |
 

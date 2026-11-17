@@ -7,3 +7,9 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 *.tsbuildinfo
+docs/video/*.mp4
+docs/video/*.srt
+docs/video/*chapters*.txt
+docs/video/.voice-cache/
+backups/
+.env.from-backup
