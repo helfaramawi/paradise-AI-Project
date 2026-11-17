@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..core.audit import audit
 from ..core.deps import Principal
-from ..models import Claim, ClaimDocument, ClaimStageHistory, Entitlement, Valuation
+from ..models import Claim, ClaimDocument, ClaimStageHistory, Deadline, Entitlement, Valuation, now
 
 STAGES = ["detected", "initial_review", "evidence_collection", "contractual_verification", "financial_valuation",
           "technical_review", "legal_review", "management_approval", "submitted", "employer_response", "negotiation",
@@ -82,6 +82,11 @@ def transition(db: Session, claim: Claim, to: str, p: Principal, comment: str | 
         if not has_doc:
             raise HTTPException(status.HTTP_409_CONFLICT, "Generate and review the claim document before recording submission")
         claim.submitted_at = on
+        if claim.entitlement_id:
+            for dl in db.execute(select(Deadline).where(Deadline.entitlement_id == claim.entitlement_id,
+                                                        Deadline.deadline_type.in_(("notice", "detailed_claim")),
+                                                        Deadline.status == "open")).scalars():
+                dl.status, dl.completed_at = "completed", now()
     if to == "employer_response":
         claim.responded_at = on
     if to == "approved":

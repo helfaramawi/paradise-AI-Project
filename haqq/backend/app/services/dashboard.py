@@ -10,7 +10,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Claim, Deadline, Entitlement, Project
+from ..models import Claim, Deadline, Entitlement, Project, ProjectEvent
 from .claims import PIPELINE_GROUPS, STAGES
 
 OPEN_ENT = ("potential", "insufficient_evidence", "requires_expert_verification", "substantiated")
@@ -103,8 +103,11 @@ def compute(db: Session, project_ids: list[str], today: date | None = None) -> d
             months[c.submitted_at.strftime("%Y-%m")]["submitted"] += D(c.claimed_amount)
         if c.responded_at and D(c.approved_amount) > 0:
             months[c.responded_at.strftime("%Y-%m")]["approved"] += D(c.approved_amount)
-    for e in ents:
-        months[e.created_at.strftime("%Y-%m")]["detected"] += D(e.financial_impact)
+    ev_dates = dict(db.execute(select(ProjectEvent.id, ProjectEvent.event_date)
+                               .where(ProjectEvent.project_id.in_(project_ids))).all()) if project_ids else {}
+    for e in ents:  # potential value by the month the triggering event occurred
+        when = ev_dates.get(e.event_id) or e.created_at.date()
+        months[when.strftime("%Y-%m")]["detected"] += D(e.financial_impact)
     trend = [{"month": m, **{k: str(v) for k, v in vals.items()}} for m, vals in sorted(months.items())][-12:]
     aging = {"0-30": 0, "31-60": 0, "61-90": 0, "90+": 0}
     aging_ids: dict[str, list] = {k: [] for k in aging}

@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: #f6f7f9; --card: #ffffff; --ink: #101828; --ink-2: #475467; --ink-3: #667085; --line: #e4e7ec;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4;
+  --seq-1: #86b6ef; --seq-2: #3987e5; --seq-3: #1c5cab; --seq-4: #0f3d7a;
+}
+html, body { background: var(--surface); color: var(--ink); }
+body { font-family: Inter, "IBM Plex Sans Arabic", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body.font-ar { font-family: "IBM Plex Sans Arabic", Inter, system-ui, sans-serif; }
+.num { font-variant-numeric: tabular-nums; }
+.quote { border-inline-start: 3px solid #c49a3a; background: #fffaf0; }
+.recharts-text { font-family: inherit; }
+@layer components {
+  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+  .label { @apply mb-1 block text-xs font-medium text-slate-600; }
+  .th { @apply px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .td { @apply px-3 py-2.5 text-sm; }
+}
