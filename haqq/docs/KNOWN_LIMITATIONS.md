@@ -10,7 +10,7 @@
 | L5 | Deadlines | Triggers are counted from the recorded awareness/event date; contract-wide definitions of "day" are not read automatically (flagged as an assumption). No built-in Egyptian holiday calendar. |
 | L6 | Delay analysis | HAQQ does not perform critical-path analysis; EOT/prolongation always require an expert programme analysis. |
 | L7 | LLM | Anthropic integration implemented and unit-tested with a test double; **not exercised against the live API** in this environment. Other providers need an adapter. |
-| L8 | Docker | Images not built/verified in the development sandbox (no package-mirror access). Native stack verified. |
+| L8 | Docker | Images not built/verified in the development sandbox (no package-mirror access). Native stack verified. The backup/restore scripts wrap Docker commands around logic that is tested (scratch-restore verification, SHA-256 archive verification, corruption and tamper detection), but the `.bat`/`.sh` wrappers themselves have not been executed end to end. Run one backup and one restore drill on the first real installation. |
 | L9 | Notifications | E-mail requires SMTP configuration; deadline scans are triggered via API/UI (no internal scheduler yet). |
 | L10 | Storage | Local filesystem backend only; no at-rest encryption beyond the host disk; no antivirus scanning. |
 | L11 | Scale | In-process rate limiter; single-queue worker; no load testing performed. |

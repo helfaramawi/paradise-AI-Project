@@ -88,8 +88,16 @@ def _boq_valuation(boq_doc, lines) -> ValuationIn:
 def reset(db) -> None:
     org = db.execute(select(Organization).where(Organization.slug == DEMO_SLUG)).scalar_one_or_none()
     if org:
+        org_id = org.id
         db.delete(org)
         db.commit()
+        # documents and generated files are stored under the organisation's id: remove them too
+        import shutil
+        from pathlib import Path
+
+        from ..config import get_settings
+
+        shutil.rmtree(Path(get_settings().storage_path) / org_id, ignore_errors=True)
 
 
 def seed(today: date | None = None) -> dict:
