@@ -1,0 +1,50 @@
+# HAQQ — local / demo deployment
+#   cp .env.example .env && docker compose up -d --build
+#   docker compose exec backend python -m app.demo.seed      # optional DEMO dataset
+#   open http://localhost:8090
+name: haqq
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: haqq
+      POSTGRES_USER: haqq
+      POSTGRES_PASSWORD: ${HAQQ_DB_PASSWORD:-change-me-db}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haqq -d haqq"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file: [{ path: .env, required: false }]
+    environment:
+      HAQQ_DATABASE_URL: postgresql+psycopg2://haqq:${HAQQ_DB_PASSWORD:-change-me-db}@db:5432/haqq
+      HAQQ_WORKER_MODE: external
+      HAQQ_CORS_ORIGINS: '["http://localhost:8090"]'
+    volumes: [storage:/data/storage]
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    env_file: [{ path: .env, required: false }]
+    environment:
+      HAQQ_DATABASE_URL: postgresql+psycopg2://haqq:${HAQQ_DB_PASSWORD:-change-me-db}@db:5432/haqq
+    volumes: [storage:/data/storage]
+    depends_on: { backend: { condition: service_healthy } }
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports: ["${HAQQ_HTTP_PORT:-8090}:80"]
+    depends_on: { backend: { condition: service_healthy } }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:
