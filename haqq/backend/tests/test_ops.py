@@ -56,14 +56,38 @@ def test_archive_verification_detects_damaged_and_missing_files(stored, tmp_path
     assert any(p.startswith("checksum mismatch") for p in problems) and any(p.startswith("missing") for p in problems)
 
 
-@pytest.mark.skipif(not shutil.which("pg_dump"), reason="PostgreSQL client tools not installed")
-def test_database_backup_verify_and_corruption_detection(stored, tmp_path):
+def _pg_env() -> dict:
     url = get_settings().database_url  # postgresql+psycopg2://user:pw@host:port/db
     creds, rest = url.split("://", 1)[1].split("@", 1)
     user, pw = creds.split(":", 1)
     host, db = rest.split("/", 1)
-    env = {**os.environ, "POSTGRES_USER": user, "POSTGRES_PASSWORD": pw, "POSTGRES_DB": db,
-           "PGPASSWORD": pw, "PGHOST": host.split(":")[0], "PGPORT": host.split(":")[1] if ":" in host else "5432"}
+    return {**os.environ, "POSTGRES_USER": user, "POSTGRES_PASSWORD": pw, "POSTGRES_DB": db,
+            "PGPASSWORD": pw, "PGHOST": host.split(":")[0], "PGPORT": host.split(":")[1] if ":" in host else "5432"}
+
+
+def _require_matching_pg_tools(env: dict) -> None:
+    """In production haqq_db.sh runs inside the PostgreSQL container, so client and server versions always match.
+    Here the host's tools are used: they must match the server, or newer pg_dump output cannot be restored.
+    CI sets HAQQ_REQUIRE_PG_TOOLS=1 so a mismatch fails instead of silently skipping."""
+    strict = os.environ.get("HAQQ_REQUIRE_PG_TOOLS") == "1"
+    reason = None
+    if not shutil.which("pg_dump"):
+        reason = "PostgreSQL client tools not installed"
+    else:
+        client = subprocess.run(["pg_dump", "--version"], capture_output=True, text=True).stdout.split()[-1].split(".")[0]
+        server = subprocess.run(["psql", "-Atc", "show server_version_num"], env={**env, "PGDATABASE": env["POSTGRES_DB"],
+                                "PGUSER": env["POSTGRES_USER"]}, capture_output=True, text=True).stdout.strip()[:2]
+        if client != server:
+            reason = f"pg_dump {client} does not match PostgreSQL server {server}"
+    if reason:
+        if strict:
+            pytest.fail(reason)
+        pytest.skip(reason)
+
+
+def test_database_backup_verify_and_corruption_detection(stored, tmp_path):
+    env = _pg_env()
+    _require_matching_pg_tools(env)
     dump = tmp_path / "db.dump"
     subprocess.run(["sh", str(OPS_DB), "backup", str(dump)], env=env, check=True)
     r = subprocess.run(["sh", str(OPS_DB), "verify", str(dump)], env=env, capture_output=True, text=True)
